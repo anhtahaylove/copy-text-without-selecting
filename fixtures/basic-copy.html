@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copy Extension Fixture - Basic</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 40px auto;
+            max-width: 900px;
+            padding: 0 20px 80px;
+            line-height: 1.6;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 18px;
+        }
+        .card {
+            padding: 18px;
+            border: 1px solid #dbe4ee;
+            border-radius: 16px;
+            background: #f8fbff;
+        }
+        img {
+            width: 100%;
+            max-width: 220px;
+            border-radius: 12px;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px 12px;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Basic copy scenarios</h1>
+    <p>Use this page to validate plain text, link Markdown conversion, image extraction, and form control values.</p>
+
+    <div class="grid">
+        <section class="card">
+            <h2>Plain text</h2>
+            <p id="plain-text">Copying this paragraph should capture the visible text exactly as displayed on the page.</p>
+        </section>
+
+        <section class="card">
+            <h2>Links</h2>
+            <p>
+                This card contains a
+                <a href="https://example.com/docs/guide">documentation link</a>
+                that should copy as Markdown.
+            </p>
+        </section>
+
+        <section class="card">
+            <h2>Images</h2>
+            <img
+                src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600"
+                alt="Workspace with laptop and notebook" />
+        </section>
+
+        <section class="card">
+            <h2>Input controls</h2>
+            <label>
+                Text input
+                <input type="text" value="Input field text" />
+            </label>
+            <label>
+                Textarea
+                <textarea rows="4">Textarea content line 1
+Textarea content line 2</textarea>
+            </label>
+            <label>
+                Select
+                <select>
+                    <option>Alpha</option>
+                    <option selected>Beta</option>
+                    <option>Gamma</option>
+                </select>
+            </label>
+        </section>
+    </div>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "copy-text-without-selecting",
+  "version": "2.4.0",
+  "private": true,
+  "description": "Manifest V3 browser extension for copying text with modifier-assisted clicks.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

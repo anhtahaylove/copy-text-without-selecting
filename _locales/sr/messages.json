@@ -1,5 +1,101 @@
 {
   "copy": {
     "message": "&Копирај"
+  },
+  "meta_key": {
+    "message": "Copy operation"
+  },
+  "meta_key_help": {
+    "message": "Append mode uses Shift together with your chosen copy modifier."
+  },
+  "excluded_domains_label": {
+    "message": "Excluded domains"
+  },
+  "excluded_domains_help": {
+    "message": "Enter one domain per line. Excluded domains disable both hover previews and copy actions. Example: figma.com blocks figma.com and all of its subdomains."
+  },
+  "preview_enabled_label": {
+    "message": "Hover preview"
+  },
+  "preview_enabled_help": {
+    "message": "Show the dashed outline overlay while holding the copy modifier."
+  },
+  "avoid_editable_label": {
+    "message": "Skip editable apps"
+  },
+  "avoid_editable_help": {
+    "message": "Avoid contenteditable editors and rich text surfaces where copy gestures might be disruptive."
+  },
+  "toast_duration_label": {
+    "message": "Feedback duration"
+  },
+  "toast_duration_help": {
+    "message": "Controls how long the floating feedback remains visible."
+  },
+  "save_status_saved": {
+    "message": "Saved"
+  },
+  "settings_eyebrow": {
+    "message": "Settings"
+  },
+  "settings_title": {
+    "message": "Copy text with Alt-Click"
+  },
+  "settings_intro": {
+    "message": "Configure how copy gestures, hover previews, and safe-mode protections behave across websites."
+  },
+  "popup_eyebrow": {
+    "message": "Quick controls"
+  },
+  "popup_title": {
+    "message": "Copy text with Alt-Click"
+  },
+  "popup_subtitle": {
+    "message": "Tweak the current site and the most-used interaction settings without opening the full options page."
+  },
+  "popup_site_label": {
+    "message": "Current site"
+  },
+  "popup_modifier_label": {
+    "message": "Copy modifier"
+  },
+  "popup_preview_label": {
+    "message": "Hover preview"
+  },
+  "popup_preview_hint": {
+    "message": "Show the target overlay while the modifier key is held."
+  },
+  "popup_safe_label": {
+    "message": "Skip editable apps"
+  },
+  "popup_safe_hint": {
+    "message": "Avoid copying inside contenteditable editors and rich text surfaces."
+  },
+  "popup_duration_label": {
+    "message": "Feedback duration"
+  },
+  "popup_append_hint": {
+    "message": "Append mode stays available with Shift + modifier + Click."
+  },
+  "popup_site_active": {
+    "message": "Active"
+  },
+  "popup_site_excluded": {
+    "message": "Excluded"
+  },
+  "popup_site_unsupported": {
+    "message": "Unsupported"
+  },
+  "popup_site_unknown": {
+    "message": "This page is not scriptable"
+  },
+  "popup_toggle_include": {
+    "message": "Allow this site"
+  },
+  "popup_toggle_exclude": {
+    "message": "Exclude this site"
+  },
+  "open_options": {
+    "message": "Open full settings"
   }
 }

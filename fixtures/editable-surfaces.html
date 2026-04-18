@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copy Extension Fixture - Editable Surfaces</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 40px auto;
+            max-width: 900px;
+            padding: 0 20px 80px;
+            line-height: 1.6;
+        }
+        .editor {
+            padding: 16px;
+            min-height: 140px;
+            border-radius: 16px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+        }
+        .shell {
+            display: grid;
+            gap: 18px;
+        }
+        .card {
+            padding: 18px;
+            border: 1px solid #dbe4ee;
+            border-radius: 16px;
+            background: #f8fbff;
+        }
+    </style>
+</head>
+<body>
+    <h1>Editable surface scenarios</h1>
+    <p>Use this page to validate the “Skip editable apps” setting and ensure keyboard shortcuts behave safely inside editors.</p>
+
+    <div class="shell">
+        <section class="card">
+            <h2>Contenteditable block</h2>
+            <div class="editor" contenteditable="true">
+                This is a contenteditable block. When safe mode is enabled, hover preview and copy gestures should be skipped here.
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>Role textbox</h2>
+            <div class="editor" role="textbox" contenteditable="true">
+                This simulates a richer editor surface that should be ignored in safe mode.
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>Regular text outside editor</h2>
+            <p>Copy on this paragraph should still work even when safe mode is enabled.</p>
+        </section>
+    </div>
+</body>
+</html>

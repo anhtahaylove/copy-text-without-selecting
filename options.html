@@ -1,18 +1,242 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <title>Copy text with Alt-Click</title>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="options.css">
 </head>
 <body>
-<div style="font-size:large">
-    <span id="meta_key_label"></span>
-    <select id="meta_key">
-       <option value="Alt">Alt + Click</option>
-       <option value="Ctrl">Ctrl + Click</option>
-       <option value="Shift">Shift + Click</option>
-    </select>
-</div>
-<script src="options.js"></script>
+    <div class="settings-shell">
+        <aside class="settings-sidebar">
+            <div class="hero-card">
+                <div class="eyebrow" id="settings_eyebrow">Settings</div>
+                <h1 id="settings_title">Copy text with Alt-Click</h1>
+                <p class="hero-copy" id="settings_intro">Configure how copy gestures, hover previews, safe-mode protections, and history behave across websites.</p>
+            </div>
+
+            <nav class="tab-list" aria-label="Settings sections" role="tablist">
+                <button class="tab-button active" type="button" data-tab="general" id="tab_general" role="tab" aria-selected="true" tabindex="0" aria-controls="panel_general">General</button>
+                <button class="tab-button" type="button" data-tab="sites" id="tab_sites" role="tab" aria-selected="false" tabindex="-1" aria-controls="panel_sites">Sites</button>
+                <button class="tab-button" type="button" data-tab="feedback" id="tab_feedback" role="tab" aria-selected="false" tabindex="-1" aria-controls="panel_feedback">Feedback</button>
+                <button class="tab-button" type="button" data-tab="language" id="tab_language" role="tab" aria-selected="false" tabindex="-1" aria-controls="panel_language">Language</button>
+                <button class="tab-button" type="button" data-tab="history" id="tab_history" role="tab" aria-selected="false" tabindex="-1" aria-controls="panel_history">History</button>
+            </nav>
+        </aside>
+
+        <main class="settings-main">
+            <section class="tab-panel active" data-panel="general" role="tabpanel" id="panel_general" aria-labelledby="tab_general">
+                <div class="panel-card">
+                    <div class="panel-title" id="general_section_title">General controls</div>
+
+                    <div class="field-group">
+                        <label for="meta_key" id="meta_key_label">Copy operation</label>
+                        <select id="meta_key">
+                            <option value="Alt">Alt + Click</option>
+                            <option value="Ctrl">Ctrl + Click</option>
+                            <option value="Shift">Shift + Click</option>
+                        </select>
+                        <div class="field-help" id="meta_key_help">Giữ phím copy rồi click để copy nhanh nội dung trên trang.</div>
+                    </div>
+
+                    <label class="toggle-card">
+                        <input type="checkbox" id="preview_enabled">
+                        <span>
+                            <span class="toggle-title" id="preview_enabled_label">Hover preview</span>
+                            <span class="field-help" id="preview_enabled_help">Show the dashed outline overlay while holding the copy modifier.</span>
+                        </span>
+                    </label>
+
+                    <label class="toggle-card">
+                        <input type="checkbox" id="avoid_editable">
+                        <span>
+                            <span class="toggle-title" id="avoid_editable_label">Skip editable apps</span>
+                            <span class="field-help" id="avoid_editable_help">Avoid contenteditable editors and rich text surfaces where copy gestures might be disruptive.</span>
+                        </span>
+                    </label>
+
+                    <label class="toggle-card">
+                        <input type="checkbox" id="keyboard_shortcut_enabled">
+                        <span>
+                            <span class="toggle-title" id="keyboard_shortcut_enabled_label">Keyboard shortcut mode</span>
+                            <span class="field-help" id="keyboard_shortcut_enabled_help">Allow the browser shortcut to copy the hovered target or the focused element without clicking.</span>
+                        </span>
+                    </label>
+
+                    <div class="inline-note" id="keyboard_shortcut_hint">You can customize the extension shortcut in chrome://extensions/shortcuts.</div>
+                </div>
+            </section>
+
+            <section class="tab-panel" data-panel="sites" role="tabpanel" id="panel_sites" aria-labelledby="tab_sites">
+                <div class="panel-card">
+                    <div class="panel-title" id="sites_section_title">Excluded domains</div>
+                    <div class="field-group">
+                        <label for="domain_input" id="excluded_domains_add_label">Add domain</label>
+                        <div class="inline-field">
+                            <input id="domain_input" type="text" placeholder="example.com">
+                            <button class="primary-button" type="button" id="add_domain_button">Add domain</button>
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="excluded_domains_bulk" id="excluded_domains_import_label">Bulk paste domains</label>
+                        <textarea id="excluded_domains_bulk" placeholder="docs.google.com&#10;figma.com"></textarea>
+                        <div class="field-help" id="excluded_domains_import_help">Paste one domain per line and click Apply.</div>
+                        <div class="inline-actions">
+                            <button class="secondary-button" type="button" id="apply_bulk_button">Apply list</button>
+                        </div>
+                    </div>
+
+                    <div class="field-help" id="excluded_domains_help">Excluded domains disable both hover previews and copy actions.</div>
+                    <div class="domain-list" id="excluded_domains_list" role="list" aria-label="Excluded domains"></div>
+                </div>
+            </section>
+
+            <section class="tab-panel" data-panel="feedback" role="tabpanel" id="panel_feedback" aria-labelledby="tab_feedback">
+                <div class="panel-card">
+                    <div class="panel-title" id="feedback_title">Feedback behavior</div>
+                    <div class="field-group">
+                        <label for="toast_duration" id="toast_duration_label">Feedback duration</label>
+                        <div class="duration-grid">
+                            <input id="toast_duration_range" type="range" min="300" max="8000" step="100">
+                            <div class="duration-inline">
+                                <input id="toast_duration" type="number" min="300" max="8000" step="100">
+                                <span class="suffix" id="toast_duration_unit">ms</span>
+                            </div>
+                        </div>
+                        <div class="field-help" id="toast_duration_help">Custom duration for the floating copy feedback.</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab-panel" data-panel="language" role="tabpanel" id="panel_language" aria-labelledby="tab_language">
+                <div class="panel-card">
+                    <div class="panel-title" id="language_title">Language</div>
+                    <div class="field-group">
+                        <label for="ui_language" id="ui_language_label">Extension language</label>
+                        <select id="ui_language">
+                            <option value="auto" id="ui_language_auto">Auto</option>
+                            <option value="en" id="ui_language_en">English</option>
+                            <option value="vi" id="ui_language_vi">Tiếng Việt</option>
+                        </select>
+                        <div class="field-help" id="ui_language_help">Auto follows the browser locale. English and Vietnamese are available as manual overrides.</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab-panel" data-panel="history" role="tabpanel" id="panel_history" aria-labelledby="tab_history">
+                <div class="panel-card">
+                    <div class="panel-title" id="history_title">Copy history</div>
+
+                    <div class="analytics-shell">
+                        <div class="analytics-header">
+                            <div class="panel-subtitle" id="analytics_title">Local analytics</div>
+                            <button class="secondary-button" type="button" id="reset_analytics_button">Reset analytics</button>
+                        </div>
+                        <div class="analytics-grid">
+                            <div class="analytics-card">
+                                <div class="analytics-label" id="analytics_total_actions">Total actions</div>
+                                <div class="analytics-value" id="analytics_total_actions_value">0</div>
+                            </div>
+                            <div class="analytics-card">
+                                <div class="analytics-label" id="analytics_selection_actions">Selection-first copies</div>
+                                <div class="analytics-value" id="analytics_append_actions_value">0</div>
+                            </div>
+                            <div class="analytics-card">
+                                <div class="analytics-label" id="analytics_native_actions">Native copies</div>
+                                <div class="analytics-value" id="analytics_native_actions_value">0</div>
+                            </div>
+                            <div class="analytics-card">
+                                <div class="analytics-label" id="analytics_shortcut_actions">Shortcut usage</div>
+                                <div class="analytics-value" id="analytics_shortcut_actions_value">0</div>
+                            </div>
+                            <div class="analytics-card">
+                                <div class="analytics-label" id="analytics_blocked_actions">Blocked attempts</div>
+                                <div class="analytics-value" id="analytics_blocked_actions_value">0</div>
+                            </div>
+                            <div class="analytics-card">
+                                <div class="analytics-label" id="analytics_toast_events">Toast events</div>
+                                <div class="analytics-value" id="analytics_toast_events_value">0</div>
+                            </div>
+                        </div>
+                        <div class="top-domains">
+                            <div class="panel-subtitle" id="analytics_top_domains">Top domains</div>
+                            <div class="domain-list" id="analytics_top_domains_list"></div>
+                        </div>
+                    </div>
+
+                    <div class="history-filters">
+                        <div class="field-group">
+                            <label for="history_search" id="history_search_label">Search history</label>
+                            <input id="history_search" type="search" placeholder="Search copied text or hostname">
+                        </div>
+                        <div class="filter-grid">
+                            <div class="field-group">
+                                <label for="history_source_filter" id="history_filter_source_label">Source</label>
+                                <select id="history_source_filter">
+                                    <option value="all" id="history_filter_source_all">All</option>
+                                    <option value="click">Click</option>
+                                    <option value="shortcut">Shortcut</option>
+                                    <option value="history">History</option>
+                                    <option value="native">Native</option>
+                                </select>
+                            </div>
+                            <div class="field-group">
+                                <label for="history_mode_filter" id="history_filter_mode_label">Mode</label>
+                                <select id="history_mode_filter">
+                                    <option value="all" id="history_filter_mode_all">All</option>
+                                    <option value="copy">Copy</option>
+                                </select>
+                            </div>
+                            <div class="field-group">
+                                <label for="history_domain_filter" id="history_filter_domain_label">Domain</label>
+                                <select id="history_domain_filter">
+                                    <option value="all" id="history_filter_domain_all">All</option>
+                                </select>
+                            </div>
+                            <div class="field-group">
+                                <label for="history_sort" id="history_sort_label">Sort by</label>
+                                <select id="history_sort">
+                                    <option value="newest" id="history_sort_newest">Newest</option>
+                                    <option value="oldest" id="history_sort_oldest">Oldest</option>
+                                    <option value="replayed" id="history_sort_replayed">Most replayed</option>
+                                </select>
+                            </div>
+                            <div class="field-group">
+                                <label for="history_group" id="history_group_label">Group by</label>
+                                <select id="history_group">
+                                    <option value="none" id="history_group_none">None</option>
+                                    <option value="domain" id="history_group_domain">Domain</option>
+                                    <option value="source" id="history_group_source">Source</option>
+                                    <option value="date" id="history_group_date">Date</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="copy_history_limit" id="copy_history_limit_label">Saved history items</label>
+                        <input id="copy_history_limit" type="number" min="0" max="9999" step="1">
+                        <div class="field-help" id="copy_history_limit_help">How many recent copied entries should be kept locally.</div>
+                    </div>
+
+                    <div class="inline-actions">
+                        <button class="secondary-button" type="button" id="history_bulk_toggle_button">Select items</button>
+                        <button class="secondary-button" type="button" id="history_bulk_copy_button" hidden>Copy selected</button>
+                        <button class="secondary-button" type="button" id="history_bulk_delete_button" hidden>Delete selected</button>
+                        <button class="secondary-button" type="button" id="history_bulk_cancel_button" hidden>Cancel selection</button>
+                        <button class="secondary-button" type="button" id="clear_history_button">Clear history</button>
+                    </div>
+
+                    <div class="history-list" id="options_history_list" role="list" aria-label="Copy history"></div>
+                </div>
+            </section>
+
+            <div class="save-status" id="save_status"></div>
+        </main>
+    </div>
+
+    <script src="shared.js"></script>
+    <script src="options.js"></script>
 </body>
 </html>

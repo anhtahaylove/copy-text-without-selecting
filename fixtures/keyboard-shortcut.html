@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copy Extension Fixture - Keyboard Shortcut</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 40px auto;
+            max-width: 900px;
+            padding: 0 20px 80px;
+            line-height: 1.6;
+        }
+        .card {
+            padding: 18px;
+            border: 1px solid #dbe4ee;
+            border-radius: 16px;
+            background: #f8fbff;
+            margin-bottom: 18px;
+        }
+        button, input {
+            font: inherit;
+            padding: 10px 12px;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Keyboard shortcut scenarios</h1>
+    <p>Use the browser shortcut configured for the extension to verify hover-target copy, focused-element copy, and append shortcut behavior.</p>
+
+    <section class="card">
+        <h2>Hovered target</h2>
+        <p>Hover this paragraph, then trigger the keyboard shortcut. It should copy this paragraph even without clicking.</p>
+    </section>
+
+    <section class="card">
+        <h2>Focused input</h2>
+        <label>
+            Focus this input and trigger the shortcut:
+            <input type="text" value="Focused input value for shortcut mode" />
+        </label>
+    </section>
+
+    <section class="card">
+        <h2>Focused button text</h2>
+        <button type="button">Focusable button label</button>
+    </section>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copy Extension Fixture - Selection First</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 40px auto;
+            max-width: 960px;
+            padding: 0 20px 80px;
+            line-height: 1.7;
+        }
+        .card {
+            padding: 18px;
+            border: 1px solid #dbe4ee;
+            border-radius: 16px;
+            background: #f8fbff;
+            margin-bottom: 18px;
+        }
+        code, pre {
+            display: block;
+            padding: 14px;
+            border-radius: 12px;
+            background: #0f172a;
+            color: #e2e8f0;
+            overflow: auto;
+        }
+        .fake-line-numbers {
+            color: #94a3b8;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Selection-first scenarios</h1>
+    <p>Select text in each section, then use the extension action to confirm that the selection wins over the broader element target.</p>
+
+    <section class="card">
+        <h2>Plain selection</h2>
+        <p>Select only a few words in this paragraph. The extension should copy exactly the selected range, not the whole paragraph.</p>
+    </section>
+
+    <section class="card">
+        <h2>Selection inside a link</h2>
+        <p>
+            <a href="https://example.com/features">Select only part of this link text</a>
+            and verify the extension prefers the selected substring.
+        </p>
+    </section>
+
+    <section class="card">
+        <h2>Selection inside code</h2>
+        <pre><span class="fake-line-numbers">1</span> const price = 25;
+<span class="fake-line-numbers">2</span> const total = price * 2;
+<span class="fake-line-numbers">3</span> console.log(total);</pre>
+    </section>
+
+    <section class="card">
+        <h2>Selection inside editable content</h2>
+        <div contenteditable="true" style="padding:12px;border:1px solid #cbd5e1;border-radius:12px;background:#fff;">
+            Select text here to verify how selection behaves when safe mode is on or off.
+        </div>
+    </section>
+</body>
+</html>

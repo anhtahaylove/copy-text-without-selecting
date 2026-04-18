@@ -1,19 +1,27 @@
 {
   "name": "Copy text with Alt-Click",
-  "version": "2.2.0",
+  "version": "2.4.0",
   "manifest_version": 3,
   "description": "Copy text with Alt-Click. Easy and fast copy tool.",
   "default_locale": "en",
   
   "browser_specific_settings": {
     "gecko": {
-      "id": "@copy-text-without-selecting"
+      "id": "@copy-text-without-selecting",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
     }
   },
   
   "permissions" : [
+    "activeTab",
+    "scripting",
     "storage", 
-    "clipboardWrite"
+    "clipboardWrite",
+    "alarms"
   ],
   "host_permissions": [
     "http://*/*", 
@@ -24,19 +32,26 @@
     "48" : "icon.png"
   },
   
-  "content_scripts": [
-        {
-            "matches": [
-                "http://*/*", 
-                "https://*/*"
-            ],
-            "js": [
-                "menu.js"
-            ],
-            "run_at" : "document_start"
-        }
+  "background": {
+    "scripts": [
+      "shared.js",
+      "background.js"
     ],
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "commands": {
+    "copy-focused-target": {
+      "suggested_key": {
+        "default": "Alt+Shift+C"
+      },
+      "description": "Copy hovered or focused target"
+    }
+  },
   "options_ui": {
-    "page": "options.html"
+    "page": "options.html",
+    "open_in_tab": true
   }
 }
