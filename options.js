@@ -18,14 +18,37 @@
     return;
   }
 
+  function isExtensionUsable() {
+    return utils.isExtensionContextValid();
+  }
+
+  function reportOptionsError(message, error) {
+    if (utils.isExtensionContextInvalidatedError(error)) {
+      return true;
+    }
+
+    console.warn(message, error);
+    return false;
+  }
+
   document.addEventListener("DOMContentLoaded", initializeOptions);
 
   async function initializeOptions() {
-    await restoreOptions();
-    applyMessages();
-    bindEvents();
-    await renderExcludedDomains();
-    await renderHistoryAndAnalytics();
+    if (!isExtensionUsable()) {
+      return;
+    }
+
+    try {
+      await restoreOptions();
+      applyMessages();
+      bindEvents();
+      await renderExcludedDomains();
+      await renderHistoryAndAnalytics();
+    } catch (error) {
+      if (reportOptionsError("Initializing the options page failed.", error)) {
+        return;
+      }
+    }
   }
 
   function bindEvents() {
@@ -109,17 +132,25 @@
     document.getElementById("clear_history_button").addEventListener("click", clearHistory);
     document.getElementById("reset_analytics_button").addEventListener("click", resetAnalytics);
 
-    chrome.storage.onChanged.addListener(function (changes, areaName) {
+    utils.addListenerSafely(chrome.storage.onChanged, function (changes, areaName) {
+      if (!isExtensionUsable()) {
+        return;
+      }
+
       if (areaName == "sync") {
         restoreOptions().then(function () {
           applyMessages();
           renderExcludedDomains();
           renderHistoryAndAnalytics();
+        }).catch(function (error) {
+          reportOptionsError("Refreshing the options page after settings change failed.", error);
         });
       }
 
       if (areaName == "local" && (changes.copyHistory || changes.copyAnalytics)) {
-        renderHistoryAndAnalytics();
+        renderHistoryAndAnalytics().catch(function (error) {
+          reportOptionsError("Refreshing options history or analytics failed.", error);
+        });
       }
     });
   }
@@ -132,7 +163,7 @@
   }
 
   async function restoreOptions() {
-    settings = utils.mergeSettings(await chrome.storage.sync.get(utils.DEFAULT_SETTINGS));
+    settings = utils.mergeSettings(await utils.safeStorageGet("sync", utils.DEFAULT_SETTINGS));
 
     document.getElementById("meta_key").value = settings.metaKey;
     document.getElementById("preview_enabled").checked = settings.previewEnabled;
@@ -148,6 +179,10 @@
   }
 
   async function saveOptions() {
+    if (!isExtensionUsable()) {
+      return;
+    }
+
     settings = utils.mergeSettings({
       metaKey: document.getElementById("meta_key").value,
       previewEnabled: document.getElementById("preview_enabled").checked,
@@ -159,7 +194,7 @@
       excludedDomains: document.getElementById("excluded_domains_bulk").value,
     });
 
-    await chrome.storage.sync.set(settings);
+    await utils.safeStorageSet("sync", settings);
     showStatus(t("save_status_saved", "Saved"));
     await renderExcludedDomains();
   }
@@ -181,7 +216,7 @@
     document.getElementById("excluded_domains_bulk").value = settings.excludedDomains.join("\n");
     input.value = "";
 
-    await chrome.storage.sync.set(settings);
+    await utils.safeStorageSet("sync", settings);
     await renderExcludedDomains();
     showStatus(t("save_status_saved", "Saved"));
   }
@@ -190,7 +225,7 @@
     settings.excludedDomains = utils.normalizeExcludedDomains(document.getElementById("excluded_domains_bulk").value);
     document.getElementById("excluded_domains_bulk").value = settings.excludedDomains.join("\n");
 
-    await chrome.storage.sync.set(settings);
+    await utils.safeStorageSet("sync", settings);
     await renderExcludedDomains();
     showStatus(t("save_status_saved", "Saved"));
   }
@@ -225,7 +260,7 @@
       remove.addEventListener("click", async function () {
         settings.excludedDomains = utils.toggleDomain(settings.excludedDomains, domain);
         document.getElementById("excluded_domains_bulk").value = settings.excludedDomains.join("\n");
-        await chrome.storage.sync.set(settings);
+        await utils.safeStorageSet("sync", settings);
         await renderExcludedDomains();
         showStatus(t("save_status_saved", "Saved"));
       });
@@ -238,7 +273,7 @@
   }
 
   async function renderHistoryAndAnalytics() {
-    var current = await chrome.storage.local.get({
+    var current = await utils.safeStorageGet("local", {
       copyHistory: [],
       copyAnalytics: utils.DEFAULT_ANALYTICS,
     });
@@ -541,16 +576,16 @@
   }
 
   async function deleteHistoryItem(historyId) {
-    var current = await chrome.storage.local.get({ copyHistory: [] });
+    var current = await utils.safeStorageGet("local", { copyHistory: [] });
     var nextHistory = utils.deleteHistoryEntries(current.copyHistory, [historyId]);
     selectedHistoryIds.delete(historyId);
-    await chrome.storage.local.set({ copyHistory: nextHistory });
+    await utils.safeStorageSet("local", { copyHistory: nextHistory });
     await renderHistoryAndAnalytics();
     showStatus(t("history_deleted", "History item deleted"));
   }
 
   async function recordReplayUsage(item, analyticsType) {
-    var current = await chrome.storage.local.get({
+    var current = await utils.safeStorageGet("local", {
       copyHistory: [],
       copyAnalytics: utils.DEFAULT_ANALYTICS,
     });
@@ -569,14 +604,14 @@
       toastKind: "status",
     });
 
-    await chrome.storage.local.set({
+    await utils.safeStorageSet("local", {
       copyHistory: nextHistory,
       copyAnalytics: nextAnalytics,
     });
   }
 
   async function clearHistory() {
-    await chrome.storage.local.set({ copyHistory: [] });
+    await utils.safeStorageSet("local", { copyHistory: [] });
     selectedHistoryIds.clear();
     bulkSelectionMode = false;
     await renderHistoryAndAnalytics();
@@ -584,7 +619,7 @@
   }
 
   async function resetAnalytics() {
-    await chrome.storage.local.set({ copyAnalytics: utils.DEFAULT_ANALYTICS });
+    await utils.safeStorageSet("local", { copyAnalytics: utils.DEFAULT_ANALYTICS });
     await renderHistoryAndAnalytics();
     showStatus(t("analytics_reset_done", "Analytics reset"));
   }
@@ -689,9 +724,9 @@
     if (!selectedHistoryIds.size) {
       return;
     }
-    var current = await chrome.storage.local.get({ copyHistory: [] });
+    var current = await utils.safeStorageGet("local", { copyHistory: [] });
     var nextHistory = utils.deleteHistoryEntries(current.copyHistory, Array.from(selectedHistoryIds));
-    await chrome.storage.local.set({ copyHistory: nextHistory });
+    await utils.safeStorageSet("local", { copyHistory: nextHistory });
     selectedHistoryIds.clear();
     bulkSelectionMode = false;
     await renderHistoryAndAnalytics();
@@ -703,7 +738,7 @@
       return;
     }
 
-    var current = await chrome.storage.local.get({ copyHistory: [] });
+    var current = await utils.safeStorageGet("local", { copyHistory: [] });
     var selectedItems = (Array.isArray(current.copyHistory) ? current.copyHistory : []).filter(function (item) {
       return item && selectedHistoryIds.has(item.id);
     });

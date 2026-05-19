@@ -275,3 +275,35 @@ test("pushHistoryEntry preserves pinned status on dedup", function () {
   assert.equal(result[0].pinned, true, "Pinned status should be preserved from original");
   assert.equal(result[0].source, "shortcut", "Source should update to latest");
 });
+
+test("isExtensionContextValid reflects chrome.runtime.id presence", function () {
+  const originalChrome = global.chrome;
+
+  delete global.chrome;
+  assert.equal(utils.isExtensionContextValid(), false);
+
+  global.chrome = { runtime: { id: "abc123" } };
+  assert.equal(utils.isExtensionContextValid(), true);
+
+  global.chrome = originalChrome;
+});
+
+test("isExtensionContextInvalidatedError detects the expected runtime error", function () {
+  assert.equal(utils.isExtensionContextInvalidatedError(new Error("Extension context invalidated.")), true);
+  assert.equal(utils.isExtensionContextInvalidatedError(new Error("Could not establish connection. Receiving end does not exist.")), false);
+});
+
+test("safeStorage wrappers return fallbacks when context is unavailable", async function () {
+  const originalChrome = global.chrome;
+  delete global.chrome;
+
+  const storageDefaults = { ok: true };
+  assert.deepEqual(await utils.safeStorageGet("sync", storageDefaults), storageDefaults);
+  assert.equal(await utils.safeStorageSet("sync", { ok: false }), false);
+  assert.deepEqual(await utils.safeTabsQuery({}), []);
+  assert.deepEqual(await utils.safeExecuteScript({}), []);
+  assert.equal(await utils.safeSendMessage(1, { ping: true }), null);
+  assert.equal(await utils.safeOpenOptionsPage(), false);
+
+  global.chrome = originalChrome;
+});

@@ -47,6 +47,8 @@ Temporary Items
 .apdisk
 
 web-ext-artifacts
+dist/
+.omx/
 # AI Context
 .cobridge
 

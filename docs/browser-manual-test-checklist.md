@@ -2,15 +2,16 @@
 
 ## Setup
 
-1. Load the extension unpacked in Chrome or Edge.
-2. Open `chrome://extensions/shortcuts` and confirm the extension commands are visible.
-3. Serve the fixtures with a local HTTP server:
+1. Run `npm run validate`.
+2. Load the extension unpacked in Chrome.
+3. Open `chrome://extensions/shortcuts` and confirm the extension commands are visible.
+4. Serve the fixtures with a local HTTP server:
 
 ```bash
 python -m http.server 4173
 ```
 
-4. Open:
+5. Open:
    - `http://localhost:4173/fixtures/basic-copy.html`
    - `http://localhost:4173/fixtures/editable-surfaces.html`
    - `http://localhost:4173/fixtures/keyboard-shortcut.html`
@@ -88,6 +89,12 @@ python -m http.server 4173
 - [ ] Shortcut copies hovered target without clicking
 - [ ] Shortcut copies focused element when nothing is hovered
 - [ ] Disabling keyboard shortcut mode in settings suppresses command behavior
+
+## Reload / Update
+
+- [ ] Reloading the extension does not cause repeated `Extension context invalidated` console spam on refreshed pages
+- [ ] After extension reload + page refresh, copy still works on all fixture pages
+- [ ] Popup, history, and shortcut behavior still work after extension reload
 
 ## History
 

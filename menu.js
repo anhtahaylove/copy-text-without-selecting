@@ -1,9 +1,8 @@
 (function () {
-    if (globalThis.__copyTextWithAltClickContentScriptLoaded) {
-        return;
+    var previousState = globalThis.__copyTextWithAltClickContentScriptState;
+    if (previousState && typeof previousState.dispose === "function") {
+        previousState.dispose();
     }
-
-    globalThis.__copyTextWithAltClickContentScriptLoaded = true;
 
     var utils = globalThis.CopyTextUtils;
     if (!utils) {
@@ -27,16 +26,31 @@
         lastRenderedTarget: null,
     };
     var suppressNativeCopyTracking = false;
+    var extensionContextInvalidated = !utils.isExtensionContextValid();
+    var disposed = false;
+    var scriptState = { dispose: dispose };
+
+    globalThis.__copyTextWithAltClickContentScriptState = scriptState;
 
     updateSettings();
+    attachExtensionListeners();
+    attachDomListeners();
 
-    chrome.storage.onChanged.addListener(function (changes, areaName) {
+    function onStorageChanged(changes, areaName) {
+        if (!isExtensionUsable()) {
+            return;
+        }
+
         if (areaName == "sync") {
             updateSettings();
         }
-    });
+    }
 
-    chrome.runtime.onMessage.addListener(function (message) {
+    function onRuntimeMessage(message) {
+        if (!isExtensionUsable()) {
+            return;
+        }
+
         if (!message || message.type != "COPY_TEXT_WITHOUT_SELECTING_SHORTCUT") {
             return;
         }
@@ -75,23 +89,113 @@
         copyCommand(shortcutTarget, "shortcut", {
             preferSelection: true,
         }).catch(function (error) {
+            if (handleExtensionContextError(error)) {
+                return;
+            }
             console.error("Shortcut copy failed.", error);
         });
-    });
+    }
 
-    document.addEventListener("click", handleClick, false);
-    document.addEventListener("mousemove", handleMouseMove, true);
-    document.addEventListener("mouseover", handleMouseOver, true);
-    document.addEventListener("mouseout", handleMouseOut, true);
-    document.addEventListener("copy", handleNativeCopy, true);
-    document.addEventListener("keydown", handleModifierChange, true);
-    document.addEventListener("keyup", handleModifierChange, true);
-    document.addEventListener("wheel", handleWheel, { capture: true, passive: false });
-    document.addEventListener("scroll", handleViewportChange, true);
-    document.addEventListener("visibilitychange", handleVisibilityChange, true);
-    window.addEventListener("resize", handleViewportChange);
+    function attachExtensionListeners() {
+        if (extensionContextInvalidated) {
+            return;
+        }
+
+        try {
+            utils.addListenerSafely(chrome.storage.onChanged, onStorageChanged);
+        } catch (error) {
+            handleExtensionContextError(error);
+        }
+
+        try {
+            utils.addListenerSafely(chrome.runtime.onMessage, onRuntimeMessage);
+        } catch (error) {
+            handleExtensionContextError(error);
+        }
+    }
+
+    function removeExtensionListeners() {
+        try {
+            utils.removeListenerSafely(chrome.storage.onChanged, onStorageChanged);
+        } catch (error) {
+            // Ignore invalidated contexts during teardown.
+        }
+
+        try {
+            utils.removeListenerSafely(chrome.runtime.onMessage, onRuntimeMessage);
+        } catch (error) {
+            // Ignore invalidated contexts during teardown.
+        }
+    }
+
+    function attachDomListeners() {
+        document.addEventListener("click", handleClick, false);
+        document.addEventListener("mousemove", handleMouseMove, true);
+        document.addEventListener("mouseover", handleMouseOver, true);
+        document.addEventListener("mouseout", handleMouseOut, true);
+        document.addEventListener("copy", handleNativeCopy, true);
+        document.addEventListener("keydown", handleModifierChange, true);
+        document.addEventListener("keyup", handleModifierChange, true);
+        document.addEventListener("wheel", handleWheel, { capture: true, passive: false });
+        document.addEventListener("scroll", handleViewportChange, true);
+        document.addEventListener("visibilitychange", handleVisibilityChange, true);
+        window.addEventListener("resize", handleViewportChange);
+    }
+
+    function removeDomListeners() {
+        document.removeEventListener("click", handleClick, false);
+        document.removeEventListener("mousemove", handleMouseMove, true);
+        document.removeEventListener("mouseover", handleMouseOver, true);
+        document.removeEventListener("mouseout", handleMouseOut, true);
+        document.removeEventListener("copy", handleNativeCopy, true);
+        document.removeEventListener("keydown", handleModifierChange, true);
+        document.removeEventListener("keyup", handleModifierChange, true);
+        document.removeEventListener("wheel", handleWheel, true);
+        document.removeEventListener("scroll", handleViewportChange, true);
+        document.removeEventListener("visibilitychange", handleVisibilityChange, true);
+        window.removeEventListener("resize", handleViewportChange);
+    }
+
+    function isExtensionUsable() {
+        return !disposed && !extensionContextInvalidated && utils.isExtensionContextValid();
+    }
+
+    function handleExtensionContextError(error) {
+        if (!utils.isExtensionContextInvalidatedError(error)) {
+            return false;
+        }
+
+        dispose();
+        return true;
+    }
+
+    function dispose() {
+        if (disposed) {
+            return;
+        }
+
+        disposed = true;
+        extensionContextInvalidated = true;
+
+        if (hoverState.previewAnimationFrame) {
+            cancelAnimationFrame(hoverState.previewAnimationFrame);
+            hoverState.previewAnimationFrame = 0;
+        }
+
+        removeExtensionListeners();
+        removeDomListeners();
+        hidePreview();
+
+        if (globalThis.__copyTextWithAltClickContentScriptState === scriptState) {
+            delete globalThis.__copyTextWithAltClickContentScriptState;
+        }
+    }
 
     function handleClick(event) {
+        if (!isExtensionUsable()) {
+            return;
+        }
+
         var copyMode = utils.getCopyMode(settings.metaKey, event);
         if (!copyMode || isCurrentHostExcluded()) {
             if (copyMode && isCurrentHostExcluded()) {
@@ -117,6 +221,9 @@
 
         if (targetToCopy) {
             executePrecisionCopy(targetToCopy, "click").catch(function (error) {
+                if (handleExtensionContextError(error)) {
+                    return;
+                }
                 console.error("Copy failed.", error);
             });
         } else {
@@ -127,6 +234,9 @@
                 clientY: event.clientY,
                 preferSelection: true,
             }).catch(function (error) {
+                if (handleExtensionContextError(error)) {
+                    return;
+                }
                 console.error("Copy failed.", error);
             });
         }
@@ -135,6 +245,10 @@
     }
 
     function handleMouseMove(event) {
+        if (!isExtensionUsable()) {
+            return;
+        }
+
         // Fast path: only track pointer coordinates when no modifier is held
         if (!utils.isPrimaryModifierPressed(settings.metaKey, event)) {
             hoverState.pointerClientX = event.clientX;
@@ -159,6 +273,10 @@
     }
 
     function handleMouseOver(event) {
+        if (!isExtensionUsable()) {
+            return;
+        }
+
         syncPointerState(event);
         hoverState.hoveredElement = getElementNode(event.target);
         hoverState.previewModifierActive = utils.isPrimaryModifierPressed(settings.metaKey, event);
@@ -169,6 +287,10 @@
     }
 
     function handleMouseOut(event) {
+        if (!isExtensionUsable()) {
+            return;
+        }
+
         if (!event.relatedTarget) {
             hoverState.hoveredElement = null;
             hidePreview();
@@ -185,6 +307,10 @@
     }
 
     function handleNativeCopy() {
+        if (!isExtensionUsable()) {
+            return;
+        }
+
         if (suppressNativeCopyTracking || isCurrentHostExcluded()) {
             return;
         }
@@ -202,6 +328,10 @@
     }
 
     function handleModifierChange(event) {
+        if (!isExtensionUsable()) {
+            return;
+        }
+
         if (!utils.isModifierKeyEvent(event)) {
             return;
         }
@@ -225,18 +355,30 @@
     }
 
     function handleViewportChange() {
+        if (!isExtensionUsable()) {
+            return;
+        }
+
         if (shouldShowPreview()) {
             schedulePreviewUpdate();
         }
     }
 
     function handleVisibilityChange() {
+        if (!isExtensionUsable()) {
+            return;
+        }
+
         if (document.hidden) {
             hidePreview();
         }
     }
 
     function handleWheel(event) {
+        if (!isExtensionUsable()) {
+            return;
+        }
+
         if (!hoverState.previewModifierActive || !shouldShowPreview()) {
             return;
         }
@@ -375,7 +517,15 @@
     }
 
     function updateSettings() {
-        chrome.storage.sync.get(utils.DEFAULT_SETTINGS, function (items) {
+        if (!isExtensionUsable()) {
+            return;
+        }
+
+        utils.safeStorageGet("sync", utils.DEFAULT_SETTINGS).then(function (items) {
+            if (!isExtensionUsable()) {
+                return;
+            }
+
             settings = utils.mergeSettings(items);
 
             if (isCurrentHostExcluded() || !hoverState.previewModifierActive) {
@@ -383,6 +533,12 @@
             } else if (shouldShowPreview()) {
                 schedulePreviewUpdate();
             }
+        }).catch(function (error) {
+            if (handleExtensionContextError(error)) {
+                return;
+            }
+
+            console.warn("Updating settings failed.", error);
         });
     }
 
@@ -1216,7 +1372,7 @@
         }
 
         try {
-            var current = await chrome.storage.local.get({ copyHistory: [] });
+            var current = await utils.safeStorageGet("local", { copyHistory: [] });
             var nextHistory = utils.pushHistoryEntry(current.copyHistory, {
                 text: text,
                 snippet: utils.getTextSnippet(text),
@@ -1229,8 +1385,12 @@
                 lastReplayedAt: isSelectionBased ? Date.now() : 0,
             }, settings.copyHistoryLimit);
 
-            await chrome.storage.local.set({ copyHistory: nextHistory });
+            await utils.safeStorageSet("local", { copyHistory: nextHistory });
         } catch (error) {
+            if (handleExtensionContextError(error)) {
+                return;
+            }
+
             console.warn("Saving copy history failed.", error);
         }
     }
@@ -1241,13 +1401,17 @@
 
     async function saveAnalyticsEvents(events) {
         try {
-            var current = await chrome.storage.local.get({ copyAnalytics: utils.DEFAULT_ANALYTICS });
+            var current = await utils.safeStorageGet("local", { copyAnalytics: utils.DEFAULT_ANALYTICS });
             var nextAnalytics = current.copyAnalytics;
             (Array.isArray(events) ? events : [events]).forEach(function (event) {
                 nextAnalytics = utils.recordAnalyticsEvent(nextAnalytics, event || {});
             });
-            await chrome.storage.local.set({ copyAnalytics: nextAnalytics });
+            await utils.safeStorageSet("local", { copyAnalytics: nextAnalytics });
         } catch (error) {
+            if (handleExtensionContextError(error)) {
+                return;
+            }
+
             console.warn("Saving copy analytics failed.", error);
         }
     }

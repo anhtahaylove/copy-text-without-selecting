@@ -1,0 +1,29 @@
+name: Chrome CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Check syntax
+        run: npm run check:syntax
+
+      - name: Check manifest
+        run: npm run check:manifest
+
+      - name: Build Chrome package
+        run: npm run build:chrome

@@ -19,31 +19,30 @@ Easy and fast copy tool.
 
 ## Download
 
-* [Add-ons for Firefox](https://addons.mozilla.org/ja/firefox/addon/copy-text-without-selecting/ "Copy Text with Alt-Click :: Add-ons for Firefox")
-* [Chrome Web Store](https://chrome.google.com/webstore/detail/copy-text-with-alt-click/obhagoegpnbklgknnmbglghkfdidegkl?authuser=0&hl=en "Copy text with Alt-Click - Chrome Web Store")
+- [Chrome Web Store](https://chrome.google.com/webstore/detail/copy-text-with-alt-click/obhagoegpnbklgknnmbglghkfdidegkl?authuser=0&hl=en "Copy text with Alt-Click - Chrome Web Store")
 
 ## Description
 
-If you install this add-on, you do not need to select a text.
-What is needed, just "Alt key & Click" on the text! That's all!
+If you install this extension, you do not need to select text first.
+Just hold the configured modifier and click the target text.
 
-This alone, the text of the point you click will be copied.
+The clicked text is copied immediately.
 
 ## How It Works
 
-- `background.js` dynamically registers the content script and respects excluded domains
-- `menu.js` handles hover preview, smart extraction, copy, native-copy tracking, and visual feedback
-- `popup.html` / `popup.js` provide quick controls for the current site and common settings
-- `options.html` / `options.js` expose the full tabbed settings management experience
-- `shared.js` contains reusable settings and hostname utilities shared by runtime, popup, options, and tests
-- local history and analytics are stored in `chrome.storage.local`
+- `background.js` manages MV3 startup, content-script registration, shortcut handling, and storage cleanup
+- `menu.js` handles hover preview, extraction, copy behavior, history, analytics, and runtime invalidation safety in page context
+- `popup.html` / `popup.js` provide quick controls for the current site and the most common settings
+- `options.html` / `options.js` expose the full tabbed settings and history management UI
+- `shared.js` contains shared settings, history, analytics, and runtime-safe Chrome API helpers
+- Local history and analytics are stored in `chrome.storage.local`
 
 ## Settings
 
 - **Copy modifier**: `Alt`, `Ctrl`, or `Shift`
 - **Hover preview**: toggles the dashed target overlay
 - **Skip editable apps**: avoids contenteditable editors and rich text surfaces
-- **Feedback duration**: controls how long the copy feedback remains visible, with fully custom timing
+- **Feedback duration**: controls how long copy feedback remains visible
 - **Excluded domains**: one hostname per line, matched against the host and its subdomains
 - **Extension language**: `Auto`, `English`, or `Tiếng Việt`
 - **Copy history size**: controls how many recent copied items remain available
@@ -58,6 +57,8 @@ The repo includes browser fixtures and a manual checklist:
 - `fixtures/basic-copy.html`
 - `fixtures/editable-surfaces.html`
 - `fixtures/keyboard-shortcut.html`
+- `fixtures/selection-copy.html`
+- `fixtures/table-copy.html`
 - `docs/browser-manual-test-checklist.md`
 
 Serve the fixtures over HTTP before testing:
@@ -66,15 +67,26 @@ Serve the fixtures over HTTP before testing:
 python -m http.server 4173
 ```
 
+## Development Target
+
+- The repository is maintained for **Chrome MV3**
+- `manifest.json` is the only supported shipping manifest
+
 ## Development
 
-Run the repository tests with Node.js:
+Run the repository checks with Node.js:
 
 ```bash
-npm test
+npm run validate
 ```
 
-The test suite uses the built-in `node:test` runner, so there are no external development dependencies to install.
+Create a release zip:
+
+```bash
+npm run pack:chrome
+```
+
+The build output is written to `dist/chrome/` and the packaged archive is written to `dist/`.
 
 ![Screenshot](https://addons.mozilla.org/user-media/previews/full/193/193185.png?modified=1622132342)
 

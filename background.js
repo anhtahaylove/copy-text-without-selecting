@@ -4,26 +4,60 @@ if (typeof importScripts === "function") {
 
 var utils = globalThis.CopyTextUtils;
 var CONTENT_SCRIPT_ID = "copy-text-with-alt-click-content";
+var HISTORY_CLEANUP_ALARM = "copy-text-history-cleanup";
 
-chrome.runtime.onInstalled.addListener(function () {
-    initializeExtension();
-});
+if (!utils) {
+    console.error("CopyTextUtils is not available.");
+} else {
+    utils.addListenerSafely(chrome.runtime.onInstalled, function () {
+        initializeExtension().catch(function (error) {
+            reportBackgroundError("Initializing extension on install failed.", error);
+        });
+    });
 
-chrome.runtime.onStartup.addListener(function () {
-    initializeExtension();
-});
+    utils.addListenerSafely(chrome.runtime.onStartup, function () {
+        initializeExtension().catch(function (error) {
+            reportBackgroundError("Initializing extension on startup failed.", error);
+        });
+    });
 
-chrome.storage.onChanged.addListener(function (changes, areaName) {
-    if (areaName == "sync") {
-        initializeExtension();
+    utils.addListenerSafely(chrome.storage.onChanged, function (changes, areaName) {
+        if (!utils.isExtensionContextValid() || areaName != "sync") {
+            return;
+        }
+
+        initializeExtension().catch(function (error) {
+            reportBackgroundError("Re-initializing extension after settings change failed.", error);
+        });
+    });
+
+    utils.addListenerSafely(chrome.commands.onCommand, function (command) {
+        triggerShortcutCopy(command).catch(function (error) {
+            reportBackgroundError("Handling shortcut command failed.", error);
+        });
+    });
+
+    try {
+        chrome.alarms.create(HISTORY_CLEANUP_ALARM, { periodInMinutes: 360 });
+        utils.addListenerSafely(chrome.alarms.onAlarm, function (alarm) {
+            if (!alarm || alarm.name != HISTORY_CLEANUP_ALARM) {
+                return;
+            }
+
+            initializeHistoryCleanup().catch(function (error) {
+                reportBackgroundError("Running history cleanup failed.", error);
+            });
+        });
+    } catch (error) {
+        reportBackgroundError("Scheduling history cleanup failed.", error);
     }
-});
-
-chrome.commands.onCommand.addListener(function (command) {
-    triggerShortcutCopy(command);
-});
+}
 
 async function initializeExtension() {
+    if (!utils.isExtensionContextValid()) {
+        return;
+    }
+
     var settings = await ensureSettings();
     await syncContentScriptRegistration(settings);
     await injectContentScriptsIntoOpenTabs(settings);
@@ -31,31 +65,39 @@ async function initializeExtension() {
 }
 
 async function ensureSettings() {
-    var current = await chrome.storage.sync.get(utils.DEFAULT_SETTINGS);
+    var current = await utils.safeStorageGet("sync", utils.DEFAULT_SETTINGS);
     var merged = utils.mergeSettings(current);
-    await chrome.storage.sync.set(merged);
+    await utils.safeStorageSet("sync", merged);
     return merged;
 }
 
 async function syncContentScriptRegistration(settings) {
-    try {
-        await chrome.scripting.unregisterContentScripts({ ids: [CONTENT_SCRIPT_ID] });
-    } catch (error) {
-        // Ignore when the content script was not registered yet.
+    if (!utils.isExtensionContextValid()) {
+        return;
     }
 
-    await chrome.scripting.registerContentScripts([{
-        id: CONTENT_SCRIPT_ID,
-        matches: ["http://*/*", "https://*/*"],
-        excludeMatches: utils.buildExcludeMatches(settings.excludedDomains),
-        js: ["shared.js", "menu.js"],
-        runAt: "document_start",
-        persistAcrossSessions: true,
-    }]);
+    try {
+        await utils.safeChromeAsync(function () {
+            return chrome.scripting.unregisterContentScripts({ ids: [CONTENT_SCRIPT_ID] });
+        }, true);
+    } catch (error) {
+        reportBackgroundError("Unregistering prior content scripts failed.", error);
+    }
+
+    await utils.safeChromeAsync(function () {
+        return chrome.scripting.registerContentScripts([{
+            id: CONTENT_SCRIPT_ID,
+            matches: ["http://*/*", "https://*/*"],
+            excludeMatches: utils.buildExcludeMatches(settings.excludedDomains),
+            js: ["shared.js", "menu.js"],
+            runAt: "document_start",
+            persistAcrossSessions: true,
+        }]);
+    }, false);
 }
 
 async function injectContentScriptsIntoOpenTabs(settings) {
-    var tabs = await chrome.tabs.query({});
+    var tabs = await utils.safeTabsQuery({});
 
     await Promise.all(tabs.map(async function (tab) {
         if (!tab.id || !tab.url) {
@@ -68,27 +110,27 @@ async function injectContentScriptsIntoOpenTabs(settings) {
         }
 
         try {
-            await chrome.scripting.executeScript({
+            await utils.safeExecuteScript({
                 target: { tabId: tab.id },
                 files: ["shared.js", "menu.js"],
             });
         } catch (error) {
-            // Ignore tabs where scripting is not allowed.
+            reportBackgroundError("Injecting content scripts into an open tab failed.", error);
         }
     }));
 }
 
 async function triggerShortcutCopy(command) {
-    var settings = utils.mergeSettings(await chrome.storage.sync.get(utils.DEFAULT_SETTINGS));
-    if (!settings.keyboardShortcutEnabled) {
-        return;
-    }
-
     if (command != "copy-focused-target") {
         return;
     }
 
-    var tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    var settings = utils.mergeSettings(await utils.safeStorageGet("sync", utils.DEFAULT_SETTINGS));
+    if (!settings.keyboardShortcutEnabled) {
+        return;
+    }
+
+    var tabs = await utils.safeTabsQuery({ active: true, lastFocusedWindow: true });
     var activeTab = tabs[0];
     if (!activeTab || !activeTab.id || !activeTab.url) {
         return;
@@ -111,8 +153,12 @@ async function triggerShortcutCopy(command) {
             type: "COPY_TEXT_WITHOUT_SELECTING_SHORTCUT",
         });
     } catch (error) {
+        if (utils.isExtensionContextInvalidatedError(error)) {
+            return;
+        }
+
         try {
-            await chrome.scripting.executeScript({
+            await utils.safeExecuteScript({
                 target: { tabId: activeTab.id },
                 files: ["shared.js", "menu.js"],
             });
@@ -121,25 +167,24 @@ async function triggerShortcutCopy(command) {
                 type: "COPY_TEXT_WITHOUT_SELECTING_SHORTCUT",
             });
         } catch (secondError) {
-            // Ignore when the page does not allow messaging or injection.
+            if (utils.isExtensionContextInvalidatedError(secondError)) {
+                return;
+            }
         }
     }
 }
 
 async function trimHistory(limit) {
-    var current = await chrome.storage.local.get({ copyHistory: [] });
+    var current = await utils.safeStorageGet("local", { copyHistory: [] });
     var history = Array.isArray(current.copyHistory) ? current.copyHistory : [];
 
-    // Enforce entry count limit
     if (history.length > limit) {
         history = history.slice(0, limit);
     }
 
-    // Enforce storage size guard (keep under 4MB to leave room for analytics/other data)
     var maxBytes = 4 * 1024 * 1024;
     var serialized = JSON.stringify(history);
     while (serialized.length > maxBytes && history.length > 1) {
-        // Remove the oldest non-pinned entry first
         var indexToRemove = -1;
         for (var i = history.length - 1; i >= 0; i--) {
             if (!history[i].pinned) {
@@ -148,34 +193,30 @@ async function trimHistory(limit) {
             }
         }
         if (indexToRemove === -1) {
-            // All pinned, remove last one anyway
             indexToRemove = history.length - 1;
         }
         history.splice(indexToRemove, 1);
         serialized = JSON.stringify(history);
     }
 
-    await chrome.storage.local.set({ copyHistory: history });
+    await utils.safeStorageSet("local", { copyHistory: history });
 }
 
-// Schedule periodic history cleanup every 6 hours
-try {
-    chrome.alarms.create("copy-text-history-cleanup", { periodInMinutes: 360 });
-    chrome.alarms.onAlarm.addListener(function (alarm) {
-        if (alarm.name === "copy-text-history-cleanup") {
-            chrome.storage.sync.get(utils.DEFAULT_SETTINGS, function (items) {
-                var settings = utils.mergeSettings(items);
-                trimHistory(settings.copyHistoryLimit);
-            });
-        }
-    });
-} catch (error) {
-    // Alarms API may not be available in all contexts
+async function initializeHistoryCleanup() {
+    var settings = utils.mergeSettings(await utils.safeStorageGet("sync", utils.DEFAULT_SETTINGS));
+    await trimHistory(settings.copyHistoryLimit);
 }
 
 async function saveAnalyticsEvent(event) {
-    var current = await chrome.storage.local.get({ copyAnalytics: utils.DEFAULT_ANALYTICS });
+    var current = await utils.safeStorageGet("local", { copyAnalytics: utils.DEFAULT_ANALYTICS });
     var nextAnalytics = utils.recordAnalyticsEvent(current.copyAnalytics, event || {});
-    await chrome.storage.local.set({ copyAnalytics: nextAnalytics });
+    await utils.safeStorageSet("local", { copyAnalytics: nextAnalytics });
 }
 
+function reportBackgroundError(message, error) {
+    if (utils.isExtensionContextInvalidatedError(error)) {
+        return;
+    }
+
+    console.warn(message, error);
+}

@@ -466,6 +466,110 @@
             .trim();
     }
 
+    function isExtensionContextValid() {
+        try {
+            return typeof chrome !== "undefined"
+                && !!chrome.runtime
+                && typeof chrome.runtime.id === "string"
+                && chrome.runtime.id.length > 0;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function isExtensionContextInvalidatedError(error) {
+        var message = String((error && error.message) || error || "");
+        return /Extension context invalidated/i.test(message);
+    }
+
+    async function safeChromeAsync(action, fallbackValue) {
+        if (!isExtensionContextValid()) {
+            return fallbackValue;
+        }
+
+        try {
+            return await action();
+        } catch (error) {
+            if (isExtensionContextInvalidatedError(error)) {
+                return fallbackValue;
+            }
+
+            throw error;
+        }
+    }
+
+    async function safeStorageGet(area, defaults) {
+        return safeChromeAsync(function () {
+            return chrome.storage[area].get(defaults);
+        }, defaults);
+    }
+
+    async function safeStorageSet(area, value) {
+        return safeChromeAsync(async function () {
+            await chrome.storage[area].set(value);
+            return true;
+        }, false);
+    }
+
+    async function safeTabsQuery(queryInfo) {
+        return safeChromeAsync(function () {
+            return chrome.tabs.query(queryInfo);
+        }, []);
+    }
+
+    async function safeExecuteScript(details) {
+        return safeChromeAsync(function () {
+            return chrome.scripting.executeScript(details);
+        }, []);
+    }
+
+    async function safeSendMessage(tabId, message, options) {
+        return safeChromeAsync(function () {
+            return chrome.tabs.sendMessage(tabId, message, options);
+        }, null);
+    }
+
+    async function safeOpenOptionsPage() {
+        return safeChromeAsync(async function () {
+            await chrome.runtime.openOptionsPage();
+            return true;
+        }, false);
+    }
+
+    function addListenerSafely(eventObject, listener) {
+        if (!isExtensionContextValid() || !eventObject || typeof eventObject.addListener !== "function") {
+            return false;
+        }
+
+        try {
+            eventObject.addListener(listener);
+            return true;
+        } catch (error) {
+            if (isExtensionContextInvalidatedError(error)) {
+                return false;
+            }
+
+            throw error;
+        }
+    }
+
+    function removeListenerSafely(eventObject, listener) {
+        if (!eventObject || typeof eventObject.removeListener !== "function") {
+            return false;
+        }
+
+        try {
+            eventObject.removeListener(listener);
+            return true;
+        } catch (error) {
+            if (isExtensionContextInvalidatedError(error)) {
+                return false;
+            }
+
+            throw error;
+        }
+    }
+
     return {
         DEFAULT_SETTINGS: DEFAULT_SETTINGS,
         DEFAULT_ANALYTICS: DEFAULT_ANALYTICS,
@@ -502,5 +606,16 @@
         filterHistoryEntries: filterHistoryEntries,
         getHistoryHostOptions: getHistoryHostOptions,
         sanitizeText: sanitizeText,
+        isExtensionContextValid: isExtensionContextValid,
+        isExtensionContextInvalidatedError: isExtensionContextInvalidatedError,
+        safeChromeAsync: safeChromeAsync,
+        safeStorageGet: safeStorageGet,
+        safeStorageSet: safeStorageSet,
+        safeTabsQuery: safeTabsQuery,
+        safeExecuteScript: safeExecuteScript,
+        safeSendMessage: safeSendMessage,
+        safeOpenOptionsPage: safeOpenOptionsPage,
+        addListenerSafely: addListenerSafely,
+        removeListenerSafely: removeListenerSafely,
     };
 });

@@ -8,6 +8,19 @@
         return;
     }
 
+    function isExtensionUsable() {
+        return utils.isExtensionContextValid();
+    }
+
+    function reportPopupError(message, error) {
+        if (utils.isExtensionContextInvalidatedError(error)) {
+            return true;
+        }
+
+        console.warn(message, error);
+        return false;
+    }
+
     var elements = {
         site: document.getElementById("current_site"),
         siteStatus: document.getElementById("current_site_status"),
@@ -26,9 +39,19 @@
     document.addEventListener("DOMContentLoaded", initializePopup);
 
     async function initializePopup() {
-        await restoreSettings();
-        applyMessages();
-        await Promise.all([detectCurrentSite(), renderHistory()]);
+        if (!isExtensionUsable()) {
+            return;
+        }
+
+        try {
+            await restoreSettings();
+            applyMessages();
+            await Promise.all([detectCurrentSite(), renderHistory()]);
+        } catch (error) {
+            if (reportPopupError("Initializing popup failed.", error)) {
+                return;
+            }
+        }
 
         elements.metaKey.addEventListener("change", saveSettings);
         elements.previewEnabled.addEventListener("change", saveSettings);
@@ -40,20 +63,30 @@
         elements.toggleSite.addEventListener("click", toggleCurrentSite);
         elements.clearHistory.addEventListener("click", clearHistory);
         elements.openOptions.addEventListener("click", function () {
-            chrome.runtime.openOptionsPage();
+            utils.safeOpenOptionsPage().catch(function (error) {
+                reportPopupError("Opening the options page failed.", error);
+            });
         });
 
-        chrome.storage.onChanged.addListener(function (changes, areaName) {
+        utils.addListenerSafely(chrome.storage.onChanged, function (changes, areaName) {
+            if (!isExtensionUsable()) {
+                return;
+            }
+
             if (areaName == "sync") {
                 restoreSettings().then(function () {
                     applyMessages();
                     refreshSiteState();
                     renderHistory();
+                }).catch(function (error) {
+                    reportPopupError("Refreshing popup after settings change failed.", error);
                 });
             }
 
             if (areaName == "local" && changes.copyHistory) {
-                renderHistory();
+                renderHistory().catch(function (error) {
+                    reportPopupError("Refreshing popup history failed.", error);
+                });
             }
         });
     }
@@ -77,7 +110,7 @@
     }
 
     async function restoreSettings() {
-        settings = utils.mergeSettings(await chrome.storage.sync.get(utils.DEFAULT_SETTINGS));
+        settings = utils.mergeSettings(await utils.safeStorageGet("sync", utils.DEFAULT_SETTINGS));
         elements.metaKey.value = settings.metaKey;
         elements.previewEnabled.checked = settings.previewEnabled;
         elements.avoidEditable.checked = settings.avoidEditable;
@@ -88,7 +121,7 @@
     }
 
     async function detectCurrentSite() {
-        var tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        var tabs = await utils.safeTabsQuery({ active: true, lastFocusedWindow: true });
         var activeTab = tabs[0];
         currentHostname = activeTab ? utils.getHostnameFromUrl(activeTab.url) : "";
 
@@ -105,7 +138,7 @@
     }
 
     async function refreshSiteState() {
-        var currentSettings = utils.mergeSettings(await chrome.storage.sync.get(utils.DEFAULT_SETTINGS));
+        var currentSettings = utils.mergeSettings(await utils.safeStorageGet("sync", utils.DEFAULT_SETTINGS));
         var isExcluded = utils.isExcludedHost(currentHostname, currentSettings.excludedDomains);
 
         setSiteStatus(isExcluded ? "excluded" : "active");
@@ -131,6 +164,10 @@
     }
 
     async function saveSettings() {
+        if (!isExtensionUsable()) {
+            return;
+        }
+
         settings = utils.mergeSettings(Object.assign({}, settings, {
             metaKey: elements.metaKey.value,
             previewEnabled: elements.previewEnabled.checked,
@@ -139,7 +176,7 @@
             copyHistoryLimit: elements.copyHistoryLimit ? elements.copyHistoryLimit.value : settings.copyHistoryLimit,
         }));
 
-        await chrome.storage.sync.set(settings);
+        await utils.safeStorageSet("sync", settings);
         showStatus(t("save_status_saved", "Saved"));
     }
 
@@ -148,16 +185,16 @@
             return;
         }
 
-        var currentSettings = utils.mergeSettings(await chrome.storage.sync.get(utils.DEFAULT_SETTINGS));
+        var currentSettings = utils.mergeSettings(await utils.safeStorageGet("sync", utils.DEFAULT_SETTINGS));
         currentSettings.excludedDomains = utils.toggleDomain(currentSettings.excludedDomains, currentHostname);
 
-        await chrome.storage.sync.set(currentSettings);
+        await utils.safeStorageSet("sync", currentSettings);
         await refreshSiteState();
         showStatus(t("save_status_saved", "Saved"));
     }
 
     async function renderHistory() {
-        var current = await chrome.storage.local.get({ copyHistory: [] });
+        var current = await utils.safeStorageGet("local", { copyHistory: [] });
         var history = Array.isArray(current.copyHistory) ? current.copyHistory : [];
         elements.historyList.textContent = "";
 
@@ -167,7 +204,7 @@
 
             var icon = document.createElement("div");
             icon.className = "empty-state-icon";
-            icon.textContent = "📋";
+            icon.textContent = "\uD83D\uDCCB";
 
             var text = document.createElement("div");
             text.className = "empty-state-text";
@@ -323,7 +360,7 @@
     }
 
     async function recordReplayUsage(item, analyticsType) {
-        var current = await chrome.storage.local.get({
+        var current = await utils.safeStorageGet("local", {
             copyHistory: [],
             copyAnalytics: utils.DEFAULT_ANALYTICS,
         });
@@ -342,22 +379,22 @@
             toastKind: "status",
         });
 
-        await chrome.storage.local.set({
+        await utils.safeStorageSet("local", {
             copyHistory: nextHistory,
             copyAnalytics: nextAnalytics,
         });
     }
 
     async function clearHistory() {
-        await chrome.storage.local.set({ copyHistory: [] });
+        await utils.safeStorageSet("local", { copyHistory: [] });
         await renderHistory();
         showStatus(t("copy_history_cleared", "History cleared"));
     }
 
     async function deleteHistoryItem(historyId) {
-        var current = await chrome.storage.local.get({ copyHistory: [] });
+        var current = await utils.safeStorageGet("local", { copyHistory: [] });
         var nextHistory = utils.deleteHistoryEntries(current.copyHistory, [historyId]);
-        await chrome.storage.local.set({ copyHistory: nextHistory });
+        await utils.safeStorageSet("local", { copyHistory: nextHistory });
         await renderHistory();
         showStatus(t("history_deleted", "History item deleted"));
     }

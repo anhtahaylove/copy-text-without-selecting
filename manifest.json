@@ -5,17 +5,6 @@
   "description": "Copy text with Alt-Click. Easy and fast copy tool.",
   "default_locale": "en",
   
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "@copy-text-without-selecting",
-      "data_collection_permissions": {
-        "required": [
-          "none"
-        ]
-      }
-    }
-  },
-  
   "permissions" : [
     "activeTab",
     "scripting",
@@ -33,10 +22,6 @@
   },
   
   "background": {
-    "scripts": [
-      "shared.js",
-      "background.js"
-    ],
     "service_worker": "background.js"
   },
   "action": {
