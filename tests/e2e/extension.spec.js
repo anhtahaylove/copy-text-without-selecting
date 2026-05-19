@@ -118,6 +118,24 @@ async function openExtensionPage(relativePath) {
   return page;
 }
 
+async function updateSyncSettings(settings) {
+  const extensionPage = await openExtensionPage("popup.html");
+  await extensionPage.evaluate(async function (nextSettings) {
+    await chrome.storage.sync.set(nextSettings);
+  }, settings);
+  await extensionPage.close();
+}
+
+async function readLatestHistoryText() {
+  const extensionPage = await openExtensionPage("popup.html");
+  const text = await extensionPage.evaluate(async function () {
+    const items = await chrome.storage.local.get({ copyHistory: [] });
+    return items.copyHistory && items.copyHistory[0] ? items.copyHistory[0].text : "";
+  });
+  await extensionPage.close();
+  return text;
+}
+
 async function withFreshExtensionContext(callback) {
   await closeExtensionContext();
   await launchExtensionContext();
@@ -150,6 +168,51 @@ test("copies basic paragraph text", async function () {
   await expect.poll(async function () {
     return readClipboard(page);
   }).toContain("Copying this paragraph should capture");
+  await page.close();
+});
+
+test("copies rich targets from the basic fixture", async function () {
+  await updateSyncSettings({ avoidEditable: false });
+  const { page } = await openPage("fixtures/basic-copy.html");
+  try {
+    await altClick(page.locator("a[href='https://example.com/docs/guide']"));
+    await expect.poll(async function () {
+      return readClipboard(page);
+    }).toBe("[documentation link](https://example.com/docs/guide)");
+
+    await altClick(page.locator("input[type='text']"));
+    await expect.poll(async function () {
+      return readClipboard(page);
+    }).toBe("Input field text");
+
+    await altClick(page.locator("textarea"));
+    await expect.poll(async function () {
+      return readClipboard(page);
+    }).toContain("Textarea content line 1");
+
+    await altClick(page.locator("select"));
+    await expect.poll(async function () {
+      return readClipboard(page);
+    }).toBe("Beta");
+  } finally {
+    await page.close();
+    await updateSyncSettings({ avoidEditable: true });
+  }
+});
+
+test("copies tables as TSV without hidden cells", async function () {
+  const { page } = await openPage("fixtures/table-copy.html");
+  await altClick(page.locator("td", { hasText: "Analytics Hub" }));
+
+  await expect.poll(async function () {
+    return readLatestHistoryText();
+  }).toBe([
+    "Product\tOwner\tStatus",
+    "Editor Suite\tAna\tBeta",
+    "Analytics Hub\tMarco\tLive",
+    "Docs Cloud\tTrang SEA Region\tPlanning",
+  ].join("\n"));
+
   await page.close();
 });
 

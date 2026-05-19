@@ -3,7 +3,7 @@
 ## Setup
 
 1. Run `npm run validate`.
-2. Load the extension unpacked in Chrome.
+2. Load the extension unpacked in Chrome from `C:\Users\VET\copy-text-without-selecting\dist\chrome`.
 3. Open `chrome://extensions/shortcuts` and confirm the extension commands are visible.
 4. Serve the fixtures with a local HTTP server:
 
@@ -47,6 +47,7 @@ python -m http.server 4173
 
 ## Basic Copy
 
+- Automated by Playwright: plain paragraph, link Markdown, input, textarea, and select copy flows.
 - [ ] Plain paragraph copies visible text
 - [ ] Native `Ctrl+C` / browser copy on selected text creates a history item with native source
 - [ ] Link copies as Markdown `[text](href)`
@@ -59,6 +60,7 @@ python -m http.server 4173
 
 ## Selection-first
 
+- Automated by Playwright: selected paragraph text wins over the broad target.
 - [ ] Selecting part of a paragraph copies only the selected text
 - [ ] Selecting part of a link copies only the selected text, not the whole link container
 - [ ] Selecting part of a code block ignores decorative line-number UI
@@ -67,6 +69,7 @@ python -m http.server 4173
 
 ## Table TSV
 
+- Automated by Playwright: table TSV export excludes hidden cells and preserves tab separators in history.
 - [ ] Clicking inside a table without a text selection exports the whole table as TSV
 - [ ] Hidden cells are excluded from TSV output
 - [ ] Multiline content inside a cell is normalized into spreadsheet-friendly text
@@ -86,12 +89,14 @@ python -m http.server 4173
 
 ## Keyboard Shortcut Mode
 
+- Automated by Playwright: shortcut message path copies the hovered fixture target.
 - [ ] Shortcut copies hovered target without clicking
 - [ ] Shortcut copies focused element when nothing is hovered
 - [ ] Disabling keyboard shortcut mode in settings suppresses command behavior
 
 ## Reload / Update
 
+- Automated by Playwright: extension reload + page refresh still copies and does not spam `Extension context invalidated`.
 - [ ] Reloading the extension does not cause repeated `Extension context invalidated` console spam on refreshed pages
 - [ ] After extension reload + page refresh, copy still works on all fixture pages
 - [ ] Popup, history, and shortcut behavior still work after extension reload
@@ -108,6 +113,7 @@ python -m http.server 4173
 
 ## Excluded Domains
 
+- Automated by Playwright: excluding the fixture host blocks copy.
 - [ ] Excluding `localhost` (or another test host) disables both preview and copy
 - [ ] Including the host again restores normal behavior
 - [ ] Subdomain matching works as expected for excluded roots
