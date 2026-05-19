@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const utils = require("../shared.js");
+const utils = require("../src/shared/core.js");
 
 test("normalizeDomain strips protocol, paths, and leading dots", function () {
   assert.equal(utils.normalizeDomain("https://docs.google.com/document/d/123"), "docs.google.com");

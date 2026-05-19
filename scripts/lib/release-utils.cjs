@@ -7,15 +7,18 @@ const CHROME_DIST_DIR = path.join(DIST_ROOT, "chrome");
 const RELEASE_ARCHIVE_PREFIX = "copy-text-with-alt-click-chrome";
 const RELEASE_ROOT_ENTRIES = [
   "_locales",
-  "background.js",
   "icon.png",
   "LICENSE.txt",
   "manifest.json",
-  "menu.js",
   "options.css",
   "options.html",
-  "options.js",
+  "popup.css",
   "popup.html",
+];
+const BUNDLED_OUTPUT_FILES = [
+  "background.js",
+  "menu.js",
+  "options.js",
   "popup.js",
   "shared.js",
 ];
@@ -118,6 +121,13 @@ function getReleaseEntries(projectRoot = PROJECT_ROOT) {
   return entries.sort(function (left, right) {
     return left.relativePath.localeCompare(right.relativePath);
   });
+}
+
+function getExpectedChromeOutputPaths(projectRoot = PROJECT_ROOT) {
+  const copiedEntries = getReleaseEntries(projectRoot).map(function (entry) {
+    return entry.relativePath;
+  });
+  return copiedEntries.concat(BUNDLED_OUTPUT_FILES).sort();
 }
 
 function copyReleaseFiles(projectRoot = PROJECT_ROOT, outputDir = CHROME_DIST_DIR) {
@@ -271,6 +281,7 @@ function createDeterministicZipFromDirectory(sourceDir, zipPath) {
 }
 
 module.exports = {
+  BUNDLED_OUTPUT_FILES,
   CHROME_DIST_DIR,
   DIST_ROOT,
   PROJECT_ROOT,
@@ -279,6 +290,7 @@ module.exports = {
   copyReleaseFiles,
   createDeterministicZipFromDirectory,
   ensureCleanDir,
+  getExpectedChromeOutputPaths,
   getReleaseEntries,
   listFilesRecursive,
   readJson,

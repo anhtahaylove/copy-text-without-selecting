@@ -1,4 +1,6 @@
 (function () {
+  const { createOptionsUi } = require("./ui.js");
+  const { createTabController } = require("./tabs.js");
   var utils = globalThis.CopyTextUtils;
   var settings = utils ? utils.mergeSettings() : null;
   var historyFilters = {
@@ -17,6 +19,14 @@
     console.error("CopyTextUtils is not available.");
     return;
   }
+
+  var ui = createOptionsUi({
+    utils: utils,
+    getSettings: function () {
+      return settings;
+    },
+  });
+  var tabController = createTabController();
 
   function isExtensionUsable() {
     return utils.isExtensionContextValid();
@@ -40,7 +50,7 @@
 
     try {
       await restoreOptions();
-      applyMessages();
+      ui.applyMessages();
       bindEvents();
       await renderExcludedDomains();
       await renderHistoryAndAnalytics();
@@ -52,30 +62,7 @@
   }
 
   function bindEvents() {
-    document.querySelectorAll(".tab-button").forEach(function (button) {
-      button.addEventListener("click", function () {
-        activateTab(button.dataset.tab);
-      });
-      button.addEventListener("keydown", function (event) {
-        var tabs = Array.from(document.querySelectorAll(".tab-button"));
-        var index = tabs.indexOf(button);
-        var next = -1;
-        if (event.key === "ArrowDown" || event.key === "ArrowRight") {
-          next = (index + 1) % tabs.length;
-        } else if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
-          next = (index - 1 + tabs.length) % tabs.length;
-        } else if (event.key === "Home") {
-          next = 0;
-        } else if (event.key === "End") {
-          next = tabs.length - 1;
-        }
-        if (next >= 0) {
-          event.preventDefault();
-          tabs[next].focus();
-          activateTab(tabs[next].dataset.tab);
-        }
-      });
-    });
+    tabController.bindTabEvents();
 
     document.getElementById("meta_key").addEventListener("change", saveOptions);
     document.getElementById("preview_enabled").addEventListener("change", saveOptions);

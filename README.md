@@ -1,6 +1,6 @@
 # Copy Text with Alt-Click
 
-Easy and fast copy tool.
+Easy and fast copy tool for Chrome MV3.
 
 ## Features
 
@@ -23,19 +23,18 @@ Easy and fast copy tool.
 
 ## Description
 
-If you install this extension, you do not need to select text first.
-Just hold the configured modifier and click the target text.
+Install the extension, hold the configured modifier key, and click the target text.
 
-The clicked text is copied immediately.
+The clicked text is copied immediately without manual selection in the common case.
 
-## How It Works
+## Architecture
 
-- `background.js` manages MV3 startup, content-script registration, shortcut handling, and storage cleanup
-- `menu.js` handles hover preview, extraction, copy behavior, history, analytics, and runtime invalidation safety in page context
-- `popup.html` / `popup.js` provide quick controls for the current site and the most common settings
-- `options.html` / `options.js` expose the full tabbed settings and history management UI
-- `shared.js` contains shared settings, history, analytics, and runtime-safe Chrome API helpers
-- Local history and analytics are stored in `chrome.storage.local`
+- `src/background/` contains the MV3 startup, registration, shortcut, and history-maintenance source modules
+- `src/content/` contains content-script source for hover preview, extraction, copy behavior, history, and analytics
+- `src/popup/` contains quick-control popup source modules
+- `src/options/` contains settings and history-management source modules
+- `src/shared/` contains shared settings, history, analytics, i18n, and runtime-safe Chrome API helpers
+- `dist/chrome/` is the generated unpacked extension artifact
 
 ## Settings
 
@@ -50,9 +49,36 @@ The clicked text is copied immediately.
 - **Local analytics**: summary cards and top domains, stored locally only
 - **Keyboard shortcut mode**: lets browser shortcuts trigger copy without requiring a click
 
-## Test Fixtures
+## Development Target
 
-The repo includes browser fixtures and a manual checklist:
+- The repository is maintained for **Chrome MV3**
+- `manifest.json` is the only supported shipping manifest
+- Authored JavaScript source lives under `src/`
+- Load unpacked from `dist/chrome/`, not from the repository root
+
+## Development
+
+Run the fast contract checks:
+
+```bash
+npm run validate
+```
+
+Run the browser automation smoke suite:
+
+```bash
+npm run test:e2e
+```
+
+Create a release zip:
+
+```bash
+npm run pack:chrome
+```
+
+## Manual Test Fixtures
+
+The repo includes fixture pages and a checklist for manual browser verification:
 
 - `fixtures/basic-copy.html`
 - `fixtures/editable-surfaces.html`
@@ -65,25 +91,6 @@ Serve the fixtures over HTTP before testing:
 
 ```bash
 python -m http.server 4173
-```
-
-## Development Target
-
-- The repository is maintained for **Chrome MV3**
-- `manifest.json` is the only supported shipping manifest
-
-## Development
-
-Run the repository checks with Node.js:
-
-```bash
-npm run validate
-```
-
-Create a release zip:
-
-```bash
-npm run pack:chrome
 ```
 
 The build output is written to `dist/chrome/` and the packaged archive is written to `dist/`.

@@ -29,18 +29,9 @@ function listScriptFiles(rootDir) {
 }
 
 function main() {
-  const extensionFiles = [
-    "background.js",
-    "menu.js",
-    "options.js",
-    "popup.js",
-    "shared.js",
-  ].map(function (fileName) {
-    return path.join(PROJECT_ROOT, fileName);
-  });
-
+  const sourceFiles = listScriptFiles(path.join(PROJECT_ROOT, "src"));
   const scriptFiles = listScriptFiles(path.join(PROJECT_ROOT, "scripts"));
-  const filesToCheck = extensionFiles.concat(scriptFiles);
+  const filesToCheck = sourceFiles.concat(scriptFiles);
 
   for (const filePath of filesToCheck) {
     execFileSync(process.execPath, ["--check", filePath], {

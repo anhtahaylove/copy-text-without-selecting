@@ -40,9 +40,12 @@ test("getReleaseEntries includes shipped files and excludes repo-only files", fu
   const relativePaths = entries.map(function (entry) {
     return entry.relativePath;
   });
+  const expectedOutputPaths = releaseUtils.getExpectedChromeOutputPaths();
 
   assert.ok(relativePaths.includes("manifest.json"));
-  assert.ok(relativePaths.includes("background.js"));
+  assert.ok(relativePaths.includes("popup.css"));
+  assert.ok(expectedOutputPaths.includes("background.js"));
+  assert.ok(expectedOutputPaths.includes("shared.js"));
   assert.ok(relativePaths.some(function (entry) {
     return entry.startsWith("_locales/") && entry.endsWith("/messages.json");
   }));

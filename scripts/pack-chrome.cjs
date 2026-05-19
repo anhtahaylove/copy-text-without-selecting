@@ -8,8 +8,8 @@ const {
   readJson,
 } = require("./lib/release-utils.cjs");
 
-function packChrome() {
-  const build = buildChrome();
+async function packChrome() {
+  const build = await buildChrome();
   const pkg = readJson(path.join(PROJECT_ROOT, "package.json"));
   const archivePath = path.join(DIST_ROOT, `${RELEASE_ARCHIVE_PREFIX}-v${pkg.version}.zip`);
   const packedFiles = createDeterministicZipFromDirectory(build.outputDir, archivePath);
@@ -23,13 +23,11 @@ function packChrome() {
 }
 
 if (require.main === module) {
-  try {
-    packChrome();
-  } catch (error) {
+  packChrome().catch(function (error) {
     console.error("Chrome packaging failed.");
     console.error(error.message || error);
     process.exitCode = 1;
-  }
+  });
 }
 
 module.exports = { packChrome };

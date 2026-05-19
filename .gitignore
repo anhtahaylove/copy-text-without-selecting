@@ -49,6 +49,8 @@ Temporary Items
 web-ext-artifacts
 dist/
 .omx/
+node_modules/
+test-results/
 # AI Context
 .cobridge
 

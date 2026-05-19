@@ -5,10 +5,16 @@
   "description": "Manifest V3 browser extension for copying text with modifier-assisted clicks.",
   "scripts": {
     "test": "node --test",
+    "test:e2e": "npm run build:chrome && playwright test",
     "check:syntax": "node scripts/check-syntax.cjs",
     "check:manifest": "node scripts/check-manifest.cjs",
     "validate": "npm run test && npm run check:syntax && npm run check:manifest && npm run build:chrome",
     "build:chrome": "node scripts/build-chrome.cjs",
-    "pack:chrome": "node scripts/pack-chrome.cjs"
+    "pack:chrome": "node scripts/pack-chrome.cjs",
+    "verify:release": "npm run validate && npm run test:e2e && npm run pack:chrome"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "esbuild": "^0.28.0"
   }
 }
