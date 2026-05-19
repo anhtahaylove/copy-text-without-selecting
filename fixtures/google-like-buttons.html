@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copy Extension Fixture - Google-like Buttons</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 40px auto;
+            max-width: 760px;
+            padding: 0 20px 80px;
+        }
+        form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 24px;
+        }
+        input[type="search"] {
+            flex: 1 1 280px;
+            padding: 10px 12px;
+        }
+        input[type="submit"] {
+            padding: 9px 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Google-like form buttons</h1>
+    <p>These buttons simulate search page controls that can handle or stop click propagation.</p>
+
+    <form id="search_form">
+        <input type="search" value="" aria-label="Search query">
+        <input id="google_search_button" type="submit" value="Google Search">
+        <input id="lucky_button" type="submit" value="I'm Feeling Lucky">
+    </form>
+
+    <script>
+        window.fixtureSubmitCount = 0;
+        window.fixtureSearchButtonClickCount = 0;
+
+        document.getElementById("search_form").addEventListener("submit", function (event) {
+            window.fixtureSubmitCount += 1;
+            event.preventDefault();
+        });
+
+        document.getElementById("google_search_button").addEventListener("click", function (event) {
+            window.fixtureSearchButtonClickCount += 1;
+            event.stopPropagation();
+        });
+    </script>
+</body>
+</html>

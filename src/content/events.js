@@ -27,6 +27,8 @@ function createContentEvents(context) {
       return;
     }
 
+    claimCopyGesture(event);
+
     const targetToCopy = hoverState.lastRenderedTarget;
     helpers.syncPointerState(event);
 
@@ -51,8 +53,21 @@ function createContentEvents(context) {
         console.error("Copy failed.", error);
       });
     }
+  }
 
-    event.preventDefault();
+  function claimCopyGesture(event) {
+    if (typeof event.preventDefault === "function" && event.cancelable !== false) {
+      event.preventDefault();
+    }
+
+    if (typeof event.stopImmediatePropagation === "function") {
+      event.stopImmediatePropagation();
+      return;
+    }
+
+    if (typeof event.stopPropagation === "function") {
+      event.stopPropagation();
+    }
   }
 
   function handleMouseMove(event) {

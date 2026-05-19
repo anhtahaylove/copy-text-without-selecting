@@ -159,7 +159,7 @@
   }
 
   function attachDomListeners() {
-    document.addEventListener("click", events.handleClick, false);
+    document.addEventListener("click", events.handleClick, true);
     document.addEventListener("mousemove", events.handleMouseMove, true);
     document.addEventListener("mouseover", events.handleMouseOver, true);
     document.addEventListener("mouseout", events.handleMouseOut, true);
@@ -173,7 +173,7 @@
   }
 
   function removeDomListeners() {
-    document.removeEventListener("click", events.handleClick, false);
+    document.removeEventListener("click", events.handleClick, true);
     document.removeEventListener("mousemove", events.handleMouseMove, true);
     document.removeEventListener("mouseover", events.handleMouseOver, true);
     document.removeEventListener("mouseout", events.handleMouseOut, true);

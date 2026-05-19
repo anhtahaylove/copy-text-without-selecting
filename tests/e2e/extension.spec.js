@@ -200,6 +200,32 @@ test("copies rich targets from the basic fixture", async function () {
   }
 });
 
+test("captures form button copy before page click handlers", async function () {
+  const { page } = await openPage("fixtures/google-like-buttons.html");
+
+  await altClick(page.locator("#google_search_button"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Google Search");
+  await expect(page.locator("body")).toBeVisible();
+  expect(await page.evaluate(function () {
+    return {
+      submitCount: window.fixtureSubmitCount,
+      searchButtonClickCount: window.fixtureSearchButtonClickCount,
+    };
+  })).toEqual({
+    submitCount: 0,
+    searchButtonClickCount: 0,
+  });
+
+  await altClick(page.locator("#lucky_button"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("I'm Feeling Lucky");
+
+  await page.close();
+});
+
 test("copies tables as TSV without hidden cells", async function () {
   const { page } = await openPage("fixtures/table-copy.html");
   await altClick(page.locator("td", { hasText: "Analytics Hub" }));
