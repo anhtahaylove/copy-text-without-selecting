@@ -34,8 +34,12 @@ var DEFAULT_SETTINGS = {
 
     var SUPPORTED_META_KEYS = ["Alt", "Ctrl", "Shift"];
     var SUPPORTED_UI_LANGUAGES = ["auto", "en", "vi"];
+    var SMART_FORMATS = ["plain", "json", "sql", "jwt", "timestamp", "date", "base64"];
     var DEFAULT_COPY_HISTORY_LIMIT = 20;
     var MAX_COPY_HISTORY_LIMIT = 9999;
+    var SQL_START_WORDS = ["select", "insert", "update", "delete", "with", "create", "alter", "drop"];
+    var SQL_KEYWORDS = ["SELECT", "FROM", "WHERE", "AND", "OR", "JOIN", "INNER", "LEFT", "RIGHT", "OUTER", "ON", "GROUP", "BY", "ORDER", "HAVING", "LIMIT", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE", "CREATE", "TABLE", "AS", "DISTINCT", "NULL", "NOT", "IN", "LIKE", "BETWEEN", "UNION", "ALL"];
+    var SQL_CLAUSES = ["GROUP BY", "ORDER BY", "LEFT JOIN", "RIGHT JOIN", "INNER JOIN", "FROM", "WHERE", "HAVING", "LIMIT", "JOIN", "UNION"];
     var VI_MESSAGES = {
         save_status_saved: "Đã lưu",
         settings_eyebrow: "Thiết lập",
@@ -43,7 +47,7 @@ var DEFAULT_SETTINGS = {
         settings_intro: "Cấu hình thao tác copy, hover preview, chế độ an toàn và lịch sử trên các website.",
         tab_general: "Chung", tab_sites: "Website", tab_feedback: "Phản hồi", tab_language: "Ngôn ngữ", tab_history: "Lịch sử",
         general_section_title: "Điều khiển chung", sites_section_title: "Domain loại trừ",
-        meta_key_label: "Phím thao tác copy", meta_key_help: "Chế độ append dùng thêm phím Shift cùng với phím copy bạn chọn.",
+        meta_key_label: "Phím thao tác copy", meta_key_help: "Giữ phím copy rồi click để copy nhanh nội dung trên trang.",
         preview_enabled_label: "Hover preview", preview_enabled_help: "Hiển thị khung nét đứt trên phần tử đích khi giữ phím copy.",
         avoid_editable_label: "Bỏ qua vùng có thể chỉnh sửa", avoid_editable_help: "Tránh kích hoạt copy trong editor contenteditable và vùng nhập liệu nâng cao.",
         keyboard_shortcut_enabled_label: "Chế độ phím tắt", keyboard_shortcut_enabled_help: "Cho phép dùng phím tắt của extension để copy phần tử đang hover hoặc đang focus mà không cần click.",
@@ -56,29 +60,29 @@ var DEFAULT_SETTINGS = {
         language_title: "Ngôn ngữ", ui_language_label: "Ngôn ngữ extension", ui_language_help: "Auto dùng ngôn ngữ trình duyệt. Có thể ép sang English hoặc Tiếng Việt.",
         ui_language_auto: "Tự động", ui_language_en: "English", ui_language_vi: "Tiếng Việt",
         history_title: "Lịch sử copy", copy_history_limit_label: "Số mục lịch sử lưu lại", copy_history_limit_help: "Số mục copy gần đây sẽ được giữ trong bộ nhớ cục bộ.",
-        copy_history_empty: "Chưa có mục copy nào.", copy_history_recopied: "Đã copy lại từ lịch sử", copy_history_appended: "Đã append từ lịch sử", copy_history_cleared: "Đã xóa lịch sử",
+        copy_history_empty: "Chưa có mục copy nào.", copy_history_recopied: "Đã copy lại từ lịch sử", copy_history_appended: "Đã copy mục trong lịch sử", copy_history_cleared: "Đã xóa lịch sử",
         copy_history_source_click: "Click từ extension", copy_history_source_shortcut: "Phím tắt extension", copy_history_source_history: "Replay lịch sử", copy_history_source_native: "Copy mặc định",
-        history_copy_button: "Copy lại", history_append_button: "Append", history_delete_button: "Xóa", history_expand_button: "Xem đầy đủ", history_collapse_button: "Ẩn bớt",
+        history_copy_button: "Copy lại", history_append_button: "Copy thông minh", history_delete_button: "Xóa", history_expand_button: "Xem đầy đủ", history_collapse_button: "Ẩn bớt",
         history_pin_button: "Ghim", history_unpin_button: "Bỏ ghim", history_bulk_select_button: "Chọn nhiều mục", history_bulk_cancel_button: "Hủy chọn",
-        history_bulk_delete_button: "Xóa mục đã chọn", history_bulk_copy_button: "Copy mục đã chọn", history_bulk_append_button: "Append mục đã chọn",
+        history_bulk_delete_button: "Xóa mục đã chọn", history_bulk_copy_button: "Copy mục đã chọn", history_bulk_append_button: "Copy gộp mục đã chọn",
         history_search_label: "Tìm trong lịch sử", history_search_placeholder: "Tìm theo nội dung hoặc hostname",
         history_filter_source_label: "Nguồn", history_filter_mode_label: "Chế độ", history_filter_domain_label: "Domain", history_filter_all: "Tất cả",
         history_filter_click: "Click từ extension", history_filter_shortcut: "Phím tắt extension", history_filter_history: "Replay lịch sử", history_filter_native: "Copy mặc định",
-        history_filter_copy: "Copy", history_filter_append: "Append", history_filter_append_fallback: "Append fallback", history_filter_pinned_label: "Chỉ hiện mục ghim",
+        history_filter_copy: "Copy", history_filter_append: "Copy thông minh", history_filter_append_fallback: "Copy thay thế", history_filter_pinned_label: "Chỉ hiện mục ghim",
         history_group_label: "Nhóm theo", history_group_none: "Không nhóm", history_group_domain: "Domain", history_group_source: "Nguồn", history_group_date: "Ngày",
         history_sort_label: "Sắp xếp", history_sort_newest: "Mới nhất", history_sort_oldest: "Cũ nhất", history_sort_replayed: "Replay nhiều nhất", history_sort_pinned: "Ưu tiên ghim",
         history_recency_now: "Vừa xong", history_no_results: "Không có mục lịch sử phù hợp.",
-        analytics_title: "Phân tích nội bộ", analytics_total_actions: "Tổng hành động", analytics_append_actions: "Lượt append", analytics_native_actions: "Lượt copy mặc định",
+        analytics_title: "Phân tích nội bộ", analytics_total_actions: "Tổng hành động", analytics_append_actions: "Lượt copy theo selection", analytics_native_actions: "Lượt copy mặc định",
         analytics_selection_actions: "Lượt copy theo selection", analytics_shortcut_actions: "Lượt dùng phím tắt", analytics_blocked_actions: "Lượt bị chặn", analytics_toast_events: "Lượt toast hiển thị",
         analytics_top_domains: "Domain dùng nhiều nhất", analytics_empty_domains: "Chưa có hoạt động domain nào.", analytics_reset_done: "Đã xóa analytics", reset_analytics_button: "Xóa analytics",
         history_deleted: "Đã xóa mục lịch sử", history_selection_cleared: "Đã bỏ chọn", history_bulk_done: "Đã hoàn thành thao tác hàng loạt",
         popup_eyebrow: "Điều khiển nhanh", popup_title: "Copy text with Alt-Click", popup_subtitle: "Điều chỉnh nhanh website hiện tại và các thiết lập hay dùng mà không cần mở trang settings đầy đủ.",
         popup_site_label: "Website hiện tại", popup_modifier_label: "Phím copy", popup_preview_label: "Hover preview", popup_preview_hint: "Hiển thị overlay trên phần tử đích khi giữ phím copy.",
-        popup_safe_label: "Bỏ qua editor", popup_safe_hint: "Tránh copy trong contenteditable và rich text editor.", popup_duration_label: "Thời lượng phản hồi", popup_append_hint: "Chế độ append vẫn dùng được với Shift + phím copy + Click.",
+        popup_safe_label: "Bỏ qua editor", popup_safe_hint: "Tránh copy trong contenteditable và rich text editor.", popup_duration_label: "Thời lượng phản hồi", popup_append_hint: "Điều chỉnh nhanh hành vi copy, độ an toàn và lịch sử gần đây.",
         popup_site_active: "Đang bật", popup_site_excluded: "Đã loại trừ", popup_site_unsupported: "Không hỗ trợ", popup_site_unknown: "Trang này không thể chạy script",
         popup_toggle_include: "Cho phép website này", popup_toggle_exclude: "Loại trừ website này", popup_history_title: "Lịch sử gần đây", popup_history_empty: "Chưa có mục copy gần đây.",
         clear_history: "Xóa lịch sử", open_options: "Mở cài đặt đầy đủ",
-        toast_copied: "Đã copy!", toast_appended: "Đã append!", toast_append_fallback: "Đã copy thay thế",
+        toast_copied: "Đã copy!", toast_appended: "Đã copy!", toast_append_fallback: "Đã copy thay thế",
         shortcut_unavailable: "Không có phần tử hover/focus nào để copy.", unsupported_surface_status: "Đã bỏ qua vùng đang chỉnh sửa"
     };
 
@@ -192,6 +196,358 @@ var DEFAULT_SETTINGS = {
         return collapsed.length > limit ? collapsed.slice(0, limit - 3) + "..." : collapsed;
     }
 
+    function detectSmartFormat(text) {
+        var trimmed = String(text || "").trim();
+        var lower = trimmed.toLowerCase();
+        var firstCharacter = trimmed.charAt(0);
+        if (!trimmed) return "plain";
+        if (isJwtText(trimmed)) return "jwt";
+        if (detectTimestamp(trimmed).ok) return "timestamp";
+        if (isDateLikeText(trimmed)) return "date";
+        if ((firstCharacter === "{" || firstCharacter === "[") && isValidJson(trimmed)) return "json";
+        if (SQL_START_WORDS.some(function (keyword) {
+            return lower === keyword || lower.startsWith(keyword + " ");
+        })) return "sql";
+        if (looksBase64(trimmed)) return "base64";
+        return "plain";
+    }
+
+    function normalizeSmartFormat(format) {
+        return SMART_FORMATS.includes(format) ? format : "plain";
+    }
+
+    function isValidJson(text) {
+        try {
+            JSON.parse(text);
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function prettyJson(text) {
+        try {
+            return JSON.stringify(JSON.parse(String(text || "")), null, 2);
+        } catch (error) {
+            return String(text || "");
+        }
+    }
+
+    function minifyJson(text) {
+        try {
+            return JSON.stringify(JSON.parse(String(text || "")));
+        } catch (error) {
+            return String(text || "");
+        }
+    }
+
+    function formatSql(text) {
+        return transformSqlCode(String(text || ""), function (segment) {
+            var formatted = collapseSqlCodeSegment(segment);
+            formatted = replaceWordPrefixInsensitive(formatted, "select", "SELECT");
+            formatted = replaceWordPrefixInsensitive(formatted, "insert", "INSERT");
+            formatted = replaceWordPrefixInsensitive(formatted, "update", "UPDATE");
+            formatted = replaceWordPrefixInsensitive(formatted, "delete", "DELETE");
+            formatted = replaceWordPrefixInsensitive(formatted, "with", "WITH");
+            formatted = replacePhrasePrefixInsensitive(formatted, "group by", "GROUP BY");
+            formatted = replacePhrasePrefixInsensitive(formatted, "order by", "ORDER BY");
+            formatted = replacePhrasePrefixInsensitive(formatted, "left join", "LEFT JOIN");
+            formatted = replacePhrasePrefixInsensitive(formatted, "right join", "RIGHT JOIN");
+            formatted = replacePhrasePrefixInsensitive(formatted, "inner join", "INNER JOIN");
+            formatted = replaceWordPrefixInsensitive(formatted, "from", "FROM");
+            formatted = replaceWordPrefixInsensitive(formatted, "where", "WHERE");
+            formatted = replaceWordPrefixInsensitive(formatted, "having", "HAVING");
+            formatted = replaceWordPrefixInsensitive(formatted, "limit", "LIMIT");
+            formatted = replaceWordPrefixInsensitive(formatted, "join", "JOIN");
+            formatted = replaceWordPrefixInsensitive(formatted, "values", "VALUES");
+            formatted = replaceWordPrefixInsensitive(formatted, "set", "SET");
+        SQL_KEYWORDS.forEach(function (keyword) {
+            formatted = formatted.replace(new RegExp("\\b" + keyword + "\\b", "gi"), keyword);
+        });
+        SQL_CLAUSES.forEach(function (clause) {
+            formatted = formatted.replace(new RegExp("\\s+" + clause.replace(/\s+/g, "\\s+"), "g"), "\n" + clause);
+        });
+            return formatted;
+        }).trim();
+    }
+
+    function minifySql(text) {
+        return transformSqlCode(String(text || ""), collapseSqlCodeSegment).trim();
+    }
+
+    function collapseSpaces(text) {
+        return String(text || "").replace(/\s+/g, " ").trim();
+    }
+
+    function isJwtText(text) {
+        var parts = String(text || "").trim().split(".");
+        if (parts.length !== 3 || !parts[0].startsWith("eyJ")) return false;
+        try {
+            return isValidJson(decodeBase64Url(parts[0])) && isValidJson(decodeBase64Url(parts[1]));
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function decodeJwt(text) {
+        var parts = String(text || "").trim().split(".");
+        if (parts.length !== 3) return "";
+        try {
+            var header = prettyJson(decodeBase64Url(parts[0]));
+            var payload = prettyJson(decodeBase64Url(parts[1]));
+            return "HEADER\n" + header + "\n\nPAYLOAD\n" + payload;
+        } catch (error) {
+            return String(text || "");
+        }
+    }
+
+    function decodeBase64Url(value) {
+        var normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+        while (normalized.length % 4) normalized += "=";
+        return decodeBase64(normalized);
+    }
+
+    function encodeBase64(text) {
+        if (typeof Buffer !== "undefined") {
+            return Buffer.from(String(text || ""), "utf8").toString("base64");
+        }
+        if (typeof btoa === "function") {
+            return btoa(unescape(encodeURIComponent(String(text || ""))));
+        }
+        return String(text || "");
+    }
+
+    function decodeBase64(text) {
+        if (typeof Buffer !== "undefined") {
+            return Buffer.from(String(text || ""), "base64").toString("utf8");
+        }
+        if (typeof atob === "function") {
+            return decodeURIComponent(escape(atob(String(text || ""))));
+        }
+        return String(text || "");
+    }
+
+    function safeDecodeBase64(text) {
+        try {
+            return looksBase64(text) ? decodeBase64(text) : String(text || "");
+        } catch (error) {
+            return String(text || "");
+        }
+    }
+
+    function looksBase64(text) {
+        var trimmed = String(text || "").trim();
+        if (trimmed.length < 12 || trimmed.length % 4 !== 0 || /[\s]/.test(trimmed)) return false;
+        if (!/^[A-Za-z0-9+/]+={0,2}$/.test(trimmed)) return false;
+        try {
+            var decoded = decodeBase64(trimmed);
+            if (!decoded || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(decoded)) return false;
+            return encodeBase64(decoded) === trimmed;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function transformSqlCode(text, transform) {
+        var output = "";
+        var code = "";
+        function flushCode() {
+            if (!code) return;
+            output += transform(code);
+            code = "";
+        }
+        for (var index = 0; index < text.length;) {
+            if (text.slice(index, index + 2) === "--") {
+                flushCode();
+                var lineEnd = text.indexOf("\n", index);
+                if (lineEnd < 0) {
+                    output += text.slice(index);
+                    break;
+                }
+                output += text.slice(index, lineEnd + 1);
+                index = lineEnd + 1;
+                continue;
+            }
+            if (text.slice(index, index + 2) === "/*") {
+                flushCode();
+                var blockEnd = text.indexOf("*/", index + 2);
+                if (blockEnd < 0) {
+                    output += text.slice(index);
+                    break;
+                }
+                output += text.slice(index, blockEnd + 2);
+                index = blockEnd + 2;
+                continue;
+            }
+            if (text[index] === "'" || text[index] === "\"") {
+                flushCode();
+                var quote = text[index];
+                var start = index++;
+                while (index < text.length) {
+                    if (text[index] === quote) {
+                        if (text[index + 1] === quote) {
+                            index += 2;
+                            continue;
+                        }
+                        index++;
+                        break;
+                    }
+                    index++;
+                }
+                output += text.slice(start, index);
+                continue;
+            }
+            code += text[index++];
+        }
+        flushCode();
+        return output;
+    }
+
+    function collapseSqlCodeSegment(segment) {
+        if (!String(segment || "").trim()) return segment ? " " : "";
+        var collapsed = String(segment || "").replace(/\s+/g, " ").trim();
+        if (/^\s/.test(segment)) collapsed = " " + collapsed;
+        if (/\s$/.test(segment)) collapsed += " ";
+        return collapsed;
+    }
+
+    function replaceWordPrefixInsensitive(input, needle, replacement) {
+        return replacePhrasePrefixInsensitive(input, needle, replacement);
+    }
+
+    function replacePhrasePrefixInsensitive(input, needle, replacement) {
+        var value = String(input || "");
+        var leading = value.match(/^\s*/)[0];
+        var rest = value.slice(leading.length);
+        if (rest.slice(0, needle.length).toLowerCase() !== needle.toLowerCase()) return input;
+        var next = rest.charAt(needle.length);
+        if (next && /[A-Za-z0-9_]/.test(next)) return input;
+        return leading + replacement + rest.slice(needle.length);
+    }
+
+    function splitWords(text) {
+        var expanded = String(text || "").replace(/([a-z0-9])([A-Z])/g, "$1 $2");
+        return expanded.split(/[\s_-]+/).map(function (word) {
+            return word.trim().toLowerCase();
+        }).filter(Boolean);
+    }
+
+    function toCamelCase(text) {
+        var words = splitWords(text);
+        if (!words.length) return String(text || "");
+        return words.map(function (word, index) {
+            return index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1);
+        }).join("");
+    }
+
+    function toDelimitedCase(text, separator) {
+        var words = splitWords(text);
+        return words.length ? words.join(separator) : String(text || "");
+    }
+
+    function detectTimestamp(text) {
+        var trimmed = String(text || "").trim();
+        if (!/^\d{10}(\d{3})?$/.test(trimmed)) {
+            return { ok: false, date: null, isMilliseconds: false };
+        }
+        var isMilliseconds = trimmed.length === 13;
+        var numeric = Number(trimmed);
+        var date = new Date(isMilliseconds ? numeric : numeric * 1000);
+        var year = date.getFullYear();
+        return {
+            ok: year > 1975 && year < 2100,
+            date: date,
+            isMilliseconds: isMilliseconds
+        };
+    }
+
+    function timestampToDate(text) {
+        var detected = detectTimestamp(text);
+        if (!detected.ok) return String(text || "");
+        return formatLocalDateTime(detected.date);
+    }
+
+    function isDateLikeText(text) {
+        var trimmed = String(text || "").trim();
+        if (!trimmed || /^\d+$/.test(trimmed)) return false;
+        if (!/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?|^\d{2}\/\d{2}\/\d{4}(?: \d{2}:\d{2}(?::\d{2})?)?$/.test(trimmed)) {
+            return false;
+        }
+        return Number.isFinite(Date.parse(trimmed.replace(" ", "T")));
+    }
+
+    function dateToTimestamp(text) {
+        var trimmed = String(text || "").trim();
+        var parsed = Date.parse(trimmed.replace(" ", "T"));
+        if (!Number.isFinite(parsed)) {
+            return String(text || "");
+        }
+        return String(Math.floor(parsed / 1000));
+    }
+
+    function formatLocalDateTime(date) {
+        function pad(value) {
+            return String(value).padStart(2, "0");
+        }
+        return [
+            date.getFullYear(),
+            "-",
+            pad(date.getMonth() + 1),
+            "-",
+            pad(date.getDate()),
+            " ",
+            pad(date.getHours()),
+            ":",
+            pad(date.getMinutes()),
+            ":",
+            pad(date.getSeconds())
+        ].join("");
+    }
+
+    function applySmartAction(text, actionId) {
+        var value = String(text || "");
+        switch (actionId) {
+            case "prettyJson": return prettyJson(value);
+            case "minifyJson": return minifyJson(value);
+            case "formatSql": return formatSql(value);
+            case "minifySql": return minifySql(value);
+            case "decodeJwt": return decodeJwt(value);
+            case "timestampToDate": return timestampToDate(value);
+            case "dateToTimestamp": return dateToTimestamp(value);
+            case "upper": return value.toUpperCase();
+            case "lower": return value.toLowerCase();
+            case "camel": return toCamelCase(value);
+            case "snake": return toDelimitedCase(value, "_");
+            case "kebab": return toDelimitedCase(value, "-");
+            case "base64Encode": return encodeBase64(value);
+            case "base64Decode": return safeDecodeBase64(value);
+            default: return value;
+        }
+    }
+
+    function getSmartHistoryActions(entryOrText) {
+        var text = typeof entryOrText === "string" ? entryOrText : String((entryOrText && entryOrText.text) || "");
+        var format = normalizeSmartFormat((entryOrText && entryOrText.format) || detectSmartFormat(text));
+        var actions = [];
+        if (format === "json") actions.push({ id: "prettyJson", label: "Pretty" }, { id: "minifyJson", label: "Minify" });
+        if (format === "sql") actions.push({ id: "formatSql", label: "Format SQL" }, { id: "minifySql", label: "Minify" });
+        if (format === "jwt") actions.push({ id: "decodeJwt", label: "Decode JWT (unverified)" });
+        if (format === "timestamp") actions.push({ id: "timestampToDate", label: "To Date" });
+        if (format === "date") actions.push({ id: "dateToTimestamp", label: "To Epoch" });
+        if (format === "base64") actions.push({ id: "base64Decode", label: "Decode b64" });
+        if (text.trim()) {
+            actions.push(
+                { id: "upper", label: "UPPER" },
+                { id: "lower", label: "lower" },
+                { id: "camel", label: "camel" },
+                { id: "snake", label: "snake" },
+                { id: "kebab", label: "kebab" },
+                { id: "base64Encode", label: "b64" }
+            );
+        }
+        return actions;
+    }
+
     function getLanguage(settingsOrLanguage, browserLanguage) {
         var requested = typeof settingsOrLanguage === "string" ? settingsOrLanguage : normalizeUiLanguage((settingsOrLanguage || {}).uiLanguage);
         if (requested !== "auto") return requested;
@@ -210,8 +566,8 @@ var DEFAULT_SETTINGS = {
 
     function normalizeHistoryEntry(entry) {
         if (!entry) return null;
-        var normalizedText = String(entry.text || "").trim();
-        if (!normalizedText) return null;
+        var normalizedText = String(entry.text === undefined || entry.text === null ? "" : entry.text);
+        if (!normalizedText.trim()) return null;
         return {
             id: String(entry.id || (Date.now() + "-" + Math.random().toString(16).slice(2))),
             text: normalizedText,
@@ -221,6 +577,7 @@ var DEFAULT_SETTINGS = {
             url: String(entry.url || ""),
             hostname: normalizeDomain(entry.hostname || getHostnameFromUrl(entry.url || "")),
             mode: String(entry.mode || "copy"),
+            format: normalizeSmartFormat(entry.format || detectSmartFormat(normalizedText)),
             pinned: !!entry.pinned,
             replayCount: Number(entry.replayCount || 0),
             lastReplayedAt: Number(entry.lastReplayedAt || 0)
@@ -229,9 +586,9 @@ var DEFAULT_SETTINGS = {
 
     function pushHistoryEntry(entries, entry, limit) {
         var nextEntries = (Array.isArray(entries) ? entries : []).map(normalizeHistoryEntry).filter(Boolean);
-        var maxItems = normalizeCopyHistoryLimit(limit || DEFAULT_COPY_HISTORY_LIMIT);
+        var maxItems = normalizeCopyHistoryLimit(limit === undefined || limit === null || limit === "" ? DEFAULT_COPY_HISTORY_LIMIT : limit);
         var normalizedEntry = normalizeHistoryEntry(entry);
-        if (!normalizedEntry || maxItems === 0) return nextEntries.slice(0, maxItems);
+        if (!normalizedEntry || maxItems === 0) return trimHistoryEntries(nextEntries, maxItems);
 
         var existing = nextEntries.find(function (item) { return item.text === normalizedEntry.text; });
         if (existing) {
@@ -247,15 +604,28 @@ var DEFAULT_SETTINGS = {
         } else {
             nextEntries.unshift(normalizedEntry);
         }
-        return nextEntries.slice(0, maxItems);
+        return trimHistoryEntries(nextEntries, maxItems);
     }
 
     function updateHistoryEntry(entries, historyId, updater, limit) {
-        return (Array.isArray(entries) ? entries : []).map(normalizeHistoryEntry).filter(Boolean).map(function (entry) {
+        var maxItems = normalizeCopyHistoryLimit(limit === undefined || limit === null || limit === "" ? DEFAULT_COPY_HISTORY_LIMIT : limit);
+        var updatedEntries = (Array.isArray(entries) ? entries : []).map(normalizeHistoryEntry).filter(Boolean).map(function (entry) {
             if (entry.id !== historyId) return entry;
             var updated = typeof updater === "function" ? updater(Object.assign({}, entry)) : entry;
             return normalizeHistoryEntry(Object.assign({}, entry, updated || {}));
-        }).slice(0, normalizeCopyHistoryLimit(limit || DEFAULT_COPY_HISTORY_LIMIT));
+        }).filter(Boolean);
+        return trimHistoryEntries(updatedEntries, maxItems);
+    }
+
+    function trimHistoryEntries(entries, maxUnpinned) {
+        if (maxUnpinned === 0) return [];
+        var unpinned = 0;
+        return (Array.isArray(entries) ? entries : []).filter(function (entry) {
+            if (entry.pinned) return true;
+            if (unpinned >= maxUnpinned) return false;
+            unpinned += 1;
+            return true;
+        });
     }
 
     function deleteHistoryEntries(entries, ids) {
@@ -568,6 +938,7 @@ module.exports = {
     DEFAULT_ANALYTICS: DEFAULT_ANALYTICS,
     SUPPORTED_META_KEYS: SUPPORTED_META_KEYS,
     SUPPORTED_UI_LANGUAGES: SUPPORTED_UI_LANGUAGES,
+    SMART_FORMATS: SMART_FORMATS,
     UI_MESSAGES: VI_MESSAGES,
     normalizeDomain: normalizeDomain,
     normalizeExcludedDomains: normalizeExcludedDomains,
@@ -585,6 +956,17 @@ module.exports = {
     toggleDomain: toggleDomain,
     getHostnameFromUrl: getHostnameFromUrl,
     getTextSnippet: getTextSnippet,
+    detectSmartFormat: detectSmartFormat,
+    normalizeSmartFormat: normalizeSmartFormat,
+    prettyJson: prettyJson,
+    minifyJson: minifyJson,
+    formatSql: formatSql,
+    minifySql: minifySql,
+    decodeJwt: decodeJwt,
+    timestampToDate: timestampToDate,
+    dateToTimestamp: dateToTimestamp,
+    applySmartAction: applySmartAction,
+    getSmartHistoryActions: getSmartHistoryActions,
     getLanguage: getLanguage,
     translate: translate,
     normalizeHistoryEntry: normalizeHistoryEntry,

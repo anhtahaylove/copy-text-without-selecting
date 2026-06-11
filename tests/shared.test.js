@@ -93,6 +93,98 @@ test("pushHistoryEntry deduplicates by text and enforces the limit", function ()
   assert.equal(history[1].text, "Keep");
 });
 
+test("pushHistoryEntry treats zero limit as disabled", function () {
+  const history = utils.pushHistoryEntry([
+    { id: "1", text: "Old", snippet: "Old", createdAt: 1, source: "click", mode: "copy" }
+  ], {
+    text: "New",
+    snippet: "New",
+    createdAt: 2,
+    source: "click",
+    mode: "copy"
+  }, 0);
+
+  assert.deepEqual(history, []);
+});
+
+test("pushHistoryEntry keeps pinned items outside the unpinned limit", function () {
+  const history = utils.pushHistoryEntry([
+    { id: "pinned", text: "Pinned", snippet: "Pinned", createdAt: 1, source: "click", mode: "copy", pinned: true },
+    { id: "old", text: "Old", snippet: "Old", createdAt: 2, source: "click", mode: "copy" }
+  ], {
+    text: "New",
+    snippet: "New",
+    createdAt: 3,
+    source: "click",
+    mode: "copy"
+  }, 1);
+
+  assert.deepEqual(history.map(function (entry) { return entry.text; }), ["New", "Pinned"]);
+});
+
+test("pushHistoryEntry annotates smart format metadata", function () {
+  const history = utils.pushHistoryEntry([], {
+    text: "{\"name\":\"Codex\"}",
+    snippet: "json",
+    createdAt: 1,
+    source: "click",
+    mode: "copy",
+    url: "https://example.com"
+  }, 10);
+
+  assert.equal(history[0].format, "json");
+});
+
+test("pushHistoryEntry preserves copied text whitespace", function () {
+  const text = "  {\"name\":\"Codex\"}\n";
+  const history = utils.pushHistoryEntry([], {
+    text,
+    snippet: "json",
+    createdAt: 1,
+    source: "native",
+    mode: "copy",
+  }, 10);
+
+  assert.equal(history[0].text, text);
+  assert.equal(history[0].format, "json");
+});
+
+test("detectSmartFormat classifies developer clipboard formats", function () {
+  const jwtHeader = Buffer.from("{\"alg\":\"HS256\",\"typ\":\"JWT\"}", "utf8").toString("base64url");
+  const jwtPayload = Buffer.from("{\"exp\":1790000000}", "utf8").toString("base64url");
+
+  assert.equal(utils.detectSmartFormat("{\"ok\":true}"), "json");
+  assert.equal(utils.detectSmartFormat("select * from users where id = 1"), "sql");
+  assert.equal(utils.detectSmartFormat(jwtHeader + "." + jwtPayload + ".signature"), "jwt");
+  assert.equal(utils.detectSmartFormat("1717886400"), "timestamp");
+  assert.equal(utils.detectSmartFormat("2026-06-08 22:26:02"), "date");
+  assert.equal(utils.detectSmartFormat("SGVsbG8gd29ybGQ="), "base64");
+  assert.equal(utils.detectSmartFormat("abcdefghijkl"), "plain");
+  assert.equal(utils.detectSmartFormat("hello world"), "plain");
+});
+
+test("applySmartAction formats and transforms copied text", function () {
+  assert.equal(utils.applySmartAction("{\"b\":2}", "prettyJson"), "{\n  \"b\": 2\n}");
+  assert.equal(utils.applySmartAction("{\n  \"b\": 2\n}", "minifyJson"), "{\"b\":2}");
+  assert.equal(utils.applySmartAction("select * from users where id=1", "formatSql"), "SELECT *\nFROM users\nWHERE id=1");
+  assert.match(utils.applySmartAction("select 'from  x' as value -- keep  spacing\nfrom users", "formatSql"), /'from  x'/);
+  assert.match(utils.applySmartAction("select 'from  x' as value -- keep  spacing\nfrom users", "formatSql"), /-- keep  spacing/);
+  assert.equal(utils.applySmartAction("Hello world", "snake"), "hello_world");
+  assert.equal(utils.applySmartAction("Hello world", "base64Encode"), "SGVsbG8gd29ybGQ=");
+  assert.equal(utils.applySmartAction("SGVsbG8gd29ybGQ=", "base64Decode"), "Hello world");
+  assert.equal(utils.applySmartAction("not base64 text", "base64Decode"), "not base64 text");
+});
+
+test("applySmartAction decodes JWT header and payload", function () {
+  const header = Buffer.from("{\"alg\":\"HS256\",\"typ\":\"JWT\"}", "utf8").toString("base64url");
+  const payload = Buffer.from("{\"sub\":\"123\"}", "utf8").toString("base64url");
+  const decoded = utils.applySmartAction(header + "." + payload + ".signature", "decodeJwt");
+
+  assert.match(decoded, /HEADER/);
+  assert.match(decoded, /PAYLOAD/);
+  assert.match(decoded, /"sub": "123"/);
+});
+
 test("getTextSnippet collapses whitespace and truncates long text", function () {
   assert.equal(utils.getTextSnippet("  A   long   text  "), "A long text");
   assert.equal(utils.getTextSnippet("1234567890", 8), "12345...");

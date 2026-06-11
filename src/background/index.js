@@ -1,7 +1,6 @@
 const utils = require("../shared/core.js");
 const {
   HISTORY_CLEANUP_ALARM,
-  trimHistory,
   initializeHistoryCleanup,
   saveAnalyticsEvent,
 } = require("./history-maintenance.js");
@@ -9,6 +8,8 @@ const {
   initializeExtension,
   reportBackgroundError,
 } = require("./registration.js");
+const { createNativeMessagingBridge } = require("./native-messaging.js");
+const { createLocalHistoryController } = require("./local-history.js");
 const { triggerShortcutCopy } = require("./shortcut.js");
 
 const CONTENT_SCRIPT_ID = "copy-text-with-alt-click-content";
@@ -16,9 +17,15 @@ const CONTENT_SCRIPT_ID = "copy-text-with-alt-click-content";
 if (!utils) {
   console.error("CopyTextUtils is not available.");
 } else {
+  const nativeBridge = createNativeMessagingBridge(utils);
+  const localHistory = createLocalHistoryController(utils, nativeBridge);
+  localHistory.flushOutbox().catch(function (error) {
+    reportBackgroundError(utils, "Flushing pending companion history failed.", error);
+  });
+
   utils.addListenerSafely(chrome.runtime.onInstalled, function () {
     initializeExtension(utils, CONTENT_SCRIPT_ID, function (limit) {
-      return trimHistory(utils, limit);
+      return localHistory.trimHistory(limit);
     }).catch(function (error) {
       reportBackgroundError(utils, "Initializing extension on install failed.", error);
     });
@@ -26,7 +33,7 @@ if (!utils) {
 
   utils.addListenerSafely(chrome.runtime.onStartup, function () {
     initializeExtension(utils, CONTENT_SCRIPT_ID, function (limit) {
-      return trimHistory(utils, limit);
+      return localHistory.trimHistory(limit);
     }).catch(function (error) {
       reportBackgroundError(utils, "Initializing extension on startup failed.", error);
     });
@@ -38,7 +45,7 @@ if (!utils) {
     }
 
     initializeExtension(utils, CONTENT_SCRIPT_ID, function (limit) {
-      return trimHistory(utils, limit);
+      return localHistory.trimHistory(limit);
     }).catch(function (error) {
       reportBackgroundError(utils, "Re-initializing extension after settings change failed.", error);
     });
@@ -56,6 +63,11 @@ if (!utils) {
     });
   });
 
+  utils.addListenerSafely(chrome.runtime.onMessage, function (message, sender, sendResponse) {
+    return nativeBridge.handleRuntimeMessage(message, sender, sendResponse)
+      || localHistory.handleRuntimeMessage(message, sender, sendResponse);
+  });
+
   try {
     chrome.alarms.create(HISTORY_CLEANUP_ALARM, { periodInMinutes: 360 });
     utils.addListenerSafely(chrome.alarms.onAlarm, function (alarm) {
@@ -64,7 +76,7 @@ if (!utils) {
       }
 
       initializeHistoryCleanup(utils, function (limit) {
-        return trimHistory(utils, limit);
+        return localHistory.trimHistory(limit);
       }).catch(function (error) {
         reportBackgroundError(utils, "Running history cleanup failed.", error);
       });

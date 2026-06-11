@@ -1,0 +1,16 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "CopyTextCompanion",
+  "outputfilename": "copy-text-companion",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "author": {
+    "name": "copy-text-without-selecting"
+  },
+  "info": {
+    "productName": "Copy Text Companion",
+    "companyName": "copy-text-without-selecting",
+    "comments": "Native clipboard companion for Copy Text Without Selecting"
+  }
+}

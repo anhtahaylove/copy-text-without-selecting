@@ -10,6 +10,7 @@
     "scripting",
     "storage", 
     "clipboardWrite",
+    "nativeMessaging",
     "alarms"
   ],
   "host_permissions": [

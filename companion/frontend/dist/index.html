@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Copy Text Companion</title>
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <main class="shell">
+    <aside class="sidebar" aria-label="Companion controls">
+      <header class="brand">
+        <div class="brand-mark" aria-hidden="true">CT</div>
+        <div>
+          <div class="eyebrow">Local clipboard</div>
+          <h1>Copy Text Companion</h1>
+        </div>
+      </header>
+
+      <label class="field search-field">
+        <span>Search history</span>
+        <input id="search_input" type="search" placeholder="Text, JSON, domain, source..." autocomplete="off">
+      </label>
+
+      <section class="settings" aria-label="Settings">
+        <label class="toggle">
+          <input id="history_enabled" type="checkbox">
+          <span>Save clipboard history</span>
+        </label>
+        <label class="field">
+          <span>Max items</span>
+          <input id="max_items" type="number" min="1" max="5000" step="1">
+        </label>
+        <label class="field">
+          <span>Global hotkey</span>
+          <input id="hotkey" type="text" spellcheck="false">
+        </label>
+        <label class="toggle">
+          <input id="auto_start" type="checkbox">
+          <span>Start with Windows</span>
+        </label>
+      </section>
+
+      <div class="sidebar-actions">
+        <button id="refresh_button" type="button">Refresh</button>
+        <button id="clear_button" type="button" class="danger">Clear</button>
+        <button id="hide_button" type="button">Minimize</button>
+      </div>
+
+      <footer class="sidebar-footer">
+        <div id="status" class="status">Starting...</div>
+        <div id="storage_path" class="storage-path"></div>
+      </footer>
+    </aside>
+
+    <section class="content" aria-label="Clipboard history">
+      <div class="toolbar">
+        <div>
+          <div class="label">History</div>
+          <div id="count_label" class="muted">0 items</div>
+        </div>
+      </div>
+      <div id="history_list" class="history-list" aria-live="polite"></div>
+    </section>
+
+    <aside class="preview" aria-label="Smart preview">
+      <div class="preview-header">
+        <div>
+          <div class="label">Smart preview</div>
+          <div id="preview_meta" class="muted">Select a history item</div>
+        </div>
+        <div id="preview_actions" class="preview-actions"></div>
+      </div>
+      <pre id="preview_text"></pre>
+    </aside>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

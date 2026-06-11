@@ -48,6 +48,10 @@ Temporary Items
 
 web-ext-artifacts
 dist/
+!companion/frontend/dist/
+!companion/frontend/dist/**
+companion/build/
+companion/frontend/wailsjs/
 .omx/
 node_modules/
 test-results/

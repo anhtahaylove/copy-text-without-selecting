@@ -186,6 +186,29 @@
             color: var(--badge-mute-fg);
         }
 
+        .native-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .native-status {
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid var(--border-item);
+            background: var(--surface-item);
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 650;
+        }
+
+        .native-status.connected {
+            color: var(--badge-ok-fg);
+            border-color: var(--accent-border);
+            background: var(--accent-surface);
+        }
+
         .control {
             width: 100%;
             font: inherit;
@@ -373,6 +396,25 @@
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
+        }
+
+        .history-smart-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            padding-top: 2px;
+        }
+
+        .smart-action-button {
+            font-size: 11px;
+            padding: 6px 8px;
+            border-radius: 9px;
+        }
+
+        .history-chip[class*="format-"] {
+            color: var(--accent-alt);
+            border-color: rgba(14, 165, 233, 0.28);
+            background: rgba(14, 165, 233, 0.1);
         }
 
         .button.small {

@@ -77,11 +77,10 @@ function createOptionsHistoryView(context) {
 
   async function renderHistoryAndAnalytics() {
     const current = await context.utils.safeStorageGet("local", {
-      copyHistory: [],
       copyAnalytics: context.utils.DEFAULT_ANALYTICS,
     });
 
-    const history = Array.isArray(current.copyHistory) ? current.copyHistory : [];
+    const history = await loadHistory();
     const analytics = context.utils.normalizeAnalytics(current.copyAnalytics);
 
     populateHistoryDomainFilter(history);
@@ -184,7 +183,7 @@ function createOptionsHistoryView(context) {
     deleteButton.type = "button";
     deleteButton.textContent = context.ui.t("history_delete_button", "Delete");
     deleteButton.addEventListener("click", function () {
-      deleteHistoryItem(item.id);
+      deleteHistoryItem(item.id, item.text);
     });
 
     const fullText = document.createElement("pre");
@@ -210,6 +209,12 @@ function createOptionsHistoryView(context) {
     top.appendChild(content);
     wrapper.appendChild(top);
     wrapper.appendChild(actions);
+
+    const smartActions = createSmartActions(item);
+    if (smartActions) {
+      wrapper.appendChild(smartActions);
+    }
+
     wrapper.appendChild(fullText);
 
     return wrapper;
@@ -239,6 +244,11 @@ function createOptionsHistoryView(context) {
       meta.appendChild(createHistoryChip(hostname, "domain-chip"));
     }
 
+    const format = context.utils.normalizeSmartFormat(item.format || context.utils.detectSmartFormat(item.text));
+    if (format !== "plain") {
+      meta.appendChild(createHistoryChip(format.toUpperCase(), "format-" + format));
+    }
+
     if (item.replayCount) {
       meta.appendChild(createHistoryChip("Replay ×" + item.replayCount, "replay-chip"));
     }
@@ -250,35 +260,93 @@ function createOptionsHistoryView(context) {
     try {
       await navigator.clipboard.writeText(item.text);
       context.ui.showStatus(context.ui.t("copy_history_recopied", "Copied from history"));
-      await recordReplayUsage(item, "historyReplayCopy");
+      await recordReplayUsage(item, "historyReplayCopy", item.text);
     } catch (error) {
       context.ui.showStatus(error.message || "Clipboard error");
     }
   }
 
-  async function deleteHistoryItem(historyId) {
-    const current = await context.utils.safeStorageGet("local", { copyHistory: [] });
-    const nextHistory = context.utils.deleteHistoryEntries(current.copyHistory, [historyId]);
+  async function deleteHistoryItem(historyId, text) {
     context.state.selectedHistoryIds.delete(historyId);
-    await context.utils.safeStorageSet("local", { copyHistory: nextHistory });
+    await sendHistoryMessage("COPY_TEXT_LOCAL_HISTORY_DELETE", {
+      id: historyId,
+      text: text || "",
+    });
     await renderHistoryAndAnalytics();
     context.ui.showStatus(context.ui.t("history_deleted", "History item deleted"));
   }
 
-  async function recordReplayUsage(item, analyticsType) {
+  function createSmartActions(item) {
+    const actions = context.utils.getSmartHistoryActions(item);
+    if (!actions.length) {
+      return null;
+    }
+
+    const container = document.createElement("div");
+    container.className = "history-smart-actions";
+
+    actions.forEach(function (action) {
+      const button = document.createElement("button");
+      button.className = "secondary-button smart-action-button";
+      button.type = "button";
+      button.textContent = action.label;
+      button.addEventListener("click", function () {
+        replaySmartAction(item, action);
+      });
+      container.appendChild(button);
+    });
+
+    return container;
+  }
+
+  async function replaySmartAction(item, action) {
+    const output = context.utils.applySmartAction(item.text, action.id);
+    if (!output) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(output);
+      context.ui.showStatus(action.label + " copied");
+      await recordReplayUsage(Object.assign({}, item, {
+        text: output,
+        snippet: context.utils.getTextSnippet(output),
+        format: context.utils.detectSmartFormat(output),
+      }), "historyReplayCopy", output);
+    } catch (error) {
+      context.ui.showStatus(error.message || "Clipboard error");
+    }
+  }
+
+  async function recordReplayUsage(item, analyticsType, replayText) {
     const current = await context.utils.safeStorageGet("local", {
-      copyHistory: [],
       copyAnalytics: context.utils.DEFAULT_ANALYTICS,
     });
     const hostname = item.hostname || context.utils.getHostnameFromUrl(item.url || "");
-    const nextHistory = context.utils.pushHistoryEntry(current.copyHistory, {
-      text: item.text,
-      snippet: item.snippet || item.text,
+    const text = replayText || item.text;
+    const entry = {
+      text,
+      snippet: context.utils.getTextSnippet(text),
       source: "history",
       mode: "copy",
       url: item.url || "",
       hostname: hostname,
-    }, context.state.settings.copyHistoryLimit);
+      format: context.utils.detectSmartFormat(text),
+    };
+    await sendHistoryMessage("COPY_TEXT_LOCAL_HISTORY_ADD", {
+      entry,
+      nativeEvent: {
+        source: "history",
+        mode: "copy",
+        text,
+        url: item.url || "",
+        hostname,
+        title: "",
+        createdAt: Date.now(),
+        selectionBased: false,
+      },
+      limit: context.state.settings.copyHistoryLimit,
+    });
     const nextAnalytics = context.utils.recordAnalyticsEvent(current.copyAnalytics, {
       type: analyticsType,
       hostname: hostname,
@@ -286,13 +354,12 @@ function createOptionsHistoryView(context) {
     });
 
     await context.utils.safeStorageSet("local", {
-      copyHistory: nextHistory,
       copyAnalytics: nextAnalytics,
     });
   }
 
   async function clearHistory() {
-    await context.utils.safeStorageSet("local", { copyHistory: [] });
+    await sendHistoryMessage("COPY_TEXT_LOCAL_HISTORY_CLEAR");
     context.state.selectedHistoryIds.clear();
     context.state.bulkSelectionMode = false;
     await renderHistoryAndAnalytics();
@@ -323,9 +390,16 @@ function createOptionsHistoryView(context) {
     if (!context.state.selectedHistoryIds.size) {
       return;
     }
-    const current = await context.utils.safeStorageGet("local", { copyHistory: [] });
-    const nextHistory = context.utils.deleteHistoryEntries(current.copyHistory, Array.from(context.state.selectedHistoryIds));
-    await context.utils.safeStorageSet("local", { copyHistory: nextHistory });
+    const history = await loadHistory();
+    const items = history.filter(function (item) {
+      return context.state.selectedHistoryIds.has(item.id);
+    }).map(function (item) {
+      return { id: item.id, text: item.text };
+    });
+    await sendHistoryMessage("COPY_TEXT_LOCAL_HISTORY_DELETE", {
+      ids: Array.from(context.state.selectedHistoryIds),
+      items,
+    });
     context.state.selectedHistoryIds.clear();
     context.state.bulkSelectionMode = false;
     await renderHistoryAndAnalytics();
@@ -337,8 +411,8 @@ function createOptionsHistoryView(context) {
       return;
     }
 
-    const current = await context.utils.safeStorageGet("local", { copyHistory: [] });
-    const selectedItems = (Array.isArray(current.copyHistory) ? current.copyHistory : []).filter(function (item) {
+    const history = await loadHistory();
+    const selectedItems = history.filter(function (item) {
       return item && context.state.selectedHistoryIds.has(item.id);
     });
     const combinedText = selectedItems.map(function (item) { return item.text; }).join("\n\n").trim();
@@ -352,6 +426,33 @@ function createOptionsHistoryView(context) {
     } catch (error) {
       context.ui.showStatus(error.message || "Clipboard error");
     }
+  }
+
+  async function loadHistory() {
+    const response = await sendHistoryMessage("COPY_TEXT_LOCAL_HISTORY_LIST", {
+      limit: Math.max(context.state.settings.copyHistoryLimit || 0, 250),
+    }, false);
+    if (response && response.ok && response.payload && Array.isArray(response.payload.history)) {
+      return response.payload.history;
+    }
+    const current = await context.utils.safeStorageGet("local", { copyHistory: [] });
+    return Array.isArray(current.copyHistory) ? current.copyHistory : [];
+  }
+
+  async function sendHistoryMessage(type, payload, throwOnFailure) {
+    const response = await context.utils.safeChromeAsync(function () {
+      return chrome.runtime.sendMessage({
+        type,
+        payload: payload || {},
+      });
+    }, null);
+    if ((!response || !response.ok) && throwOnFailure !== false) {
+      const message = response && response.error && response.error.message
+        ? response.error.message
+        : "History operation failed.";
+      throw new Error(message);
+    }
+    return response;
   }
 
   function updateBulkToolbar() {

@@ -5,6 +5,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const releaseUtils = require("../scripts/lib/release-utils.cjs");
+const installNativeHost = require("../scripts/install-native-host-windows.cjs");
 
 test("validateManifestData rejects Firefox-only fields in the Chrome manifest", function () {
   const errors = releaseUtils.validateManifestData({
@@ -71,4 +72,19 @@ test("createDeterministicZipFromDirectory produces stable bytes", function () {
   assert.deepEqual(fs.readFileSync(zipA), fs.readFileSync(zipB));
 
   fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("native host installer validates unpacked Chrome extension ids", function () {
+  assert.doesNotThrow(function () {
+    installNativeHost.validateExtensionId("abcdefghijklmnopabcdefghijklmnop");
+  });
+  assert.throws(function () {
+    installNativeHost.validateExtensionId("ABCDEFGHIJKLMNOPABCDEFGHIJKLMNOP");
+  }, /32-character Chrome extension ID/);
+  assert.throws(function () {
+    installNativeHost.validateExtensionId("abcdefghijklmnopabcdefghijklmnq");
+  }, /32-character Chrome extension ID/);
+  assert.throws(function () {
+    installNativeHost.validateExtensionId("short");
+  }, /32-character Chrome extension ID/);
 });
