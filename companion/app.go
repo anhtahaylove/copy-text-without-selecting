@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -125,16 +126,15 @@ func (app *App) UpdateSettings(patch companion.SettingsPatch) (companion.Setting
 	if err != nil {
 		return companion.Settings{}, err
 	}
-	appliedAutoStart := false
 	if patch.AutoStart != nil {
 		if err := configureAutoStart(settings.AutoStart); err != nil {
 			return companion.Settings{}, errors.Join(err, app.restoreSettings(previous, true, false))
 		}
-		appliedAutoStart = true
 	}
 	if patch.Hotkey != nil && app.hotkey != nil {
 		if err := app.hotkey.Update(settings.Hotkey); err != nil {
-			return companion.Settings{}, errors.Join(err, app.restoreSettings(previous, appliedAutoStart, true))
+			log.Printf("register global hotkey: %v", err)
+			return settings, fmt.Errorf("settings saved, but global hotkey is not active: %w", err)
 		}
 	}
 	return settings, nil

@@ -177,6 +177,17 @@ h1 {
   gap: 7px;
 }
 
+.hotkey-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.hotkey-row button {
+  white-space: nowrap;
+}
+
 .settings {
   gap: 12px;
 }

@@ -73,6 +73,11 @@ From the repository root:
 npm run native:build
 ```
 
+The native build syncs `companion/assets/appicon.png` into Wails'
+generated `build/appicon.png` before packaging. Keep that companion icon
+byte-identical to the extension `icon.png` so the window, executable, and tray
+all use the same visual identity.
+
 Register the Chrome native messaging host for the current user:
 
 ```powershell
@@ -100,6 +105,9 @@ the current user's Google Chrome and Chromium native-messaging registry keys.
 
 - Wails v2 menu accelerators are wired for show/hide/quit. Windows global
   hotkey registration is enabled from the local hotkey setting at startup.
+  If Windows reports that a preferred hotkey is already registered by another
+  app, the preference is still saved but the Companion reports that the global
+  hotkey is not active until that shortcut is released or changed.
 - Windows tray support is implemented with direct Win32 `Shell_NotifyIconW`
   calls because Wails v2.12 does not expose a stable public tray option on
   `options.App`. The tray icon reuses the embedded companion app icon and

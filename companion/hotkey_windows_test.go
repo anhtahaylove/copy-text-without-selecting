@@ -14,6 +14,19 @@ func TestParseWindowsHotkeyAcceptsDefault(t *testing.T) {
 	}
 }
 
+func TestParseWindowsHotkeyAcceptsExtensionCopyShortcut(t *testing.T) {
+	modifiers, key, ok := parseWindowsHotkey("Alt+Shift+C")
+	if !ok {
+		t.Fatal("expected extension copy shortcut hotkey to parse")
+	}
+	if modifiers&(modAlt|modShift|modNoRepeat) != modAlt|modShift|modNoRepeat {
+		t.Fatalf("expected Alt+Shift+NoRepeat modifiers, got %d", modifiers)
+	}
+	if key != 'C' {
+		t.Fatalf("expected C key, got %d", key)
+	}
+}
+
 func TestValidateHotkeyRejectsUnsupportedValues(t *testing.T) {
 	for _, value := range []string{"", "Ctrl", "Ctrl+Alt", "Ctrl+Shift+Mouse1"} {
 		if err := validateHotkey(value); err == nil {

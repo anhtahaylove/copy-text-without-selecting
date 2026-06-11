@@ -4,15 +4,15 @@ function createContentClipboard(context, targeting, extraction, overlay, persist
   async function copyCommand(clickedElement, source, options) {
     const precisionTarget = targeting.resolvePrecisionTarget(clickedElement, options);
     if (!precisionTarget) {
-      return;
+      return false;
     }
-    await executePrecisionCopy(precisionTarget, source);
+    return executePrecisionCopy(precisionTarget, source);
   }
 
   async function executePrecisionCopy(precisionTarget, source) {
     const text = extraction.getText(precisionTarget);
     if (!text) {
-      return;
+      return false;
     }
 
     const htmlContent = extraction.getHtmlContent(precisionTarget);
@@ -37,6 +37,7 @@ function createContentClipboard(context, targeting, extraction, overlay, persist
     }
     persistence.saveAnalyticsEvents(analyticsEvents);
     await persistence.saveHistory(text, result, source || "click", precisionTarget.kind == "selection");
+    return true;
   }
 
   async function copy(text, htmlContent) {

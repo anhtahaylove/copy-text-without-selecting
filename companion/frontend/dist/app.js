@@ -11,6 +11,7 @@
     historyEnabled: document.getElementById("history_enabled"),
     maxItems: document.getElementById("max_items"),
     hotkey: document.getElementById("hotkey"),
+    hotkeyCopyShortcut: document.getElementById("hotkey_copy_shortcut"),
     autoStart: document.getElementById("auto_start"),
     refresh: document.getElementById("refresh_button"),
     clear: document.getElementById("clear_button"),
@@ -54,6 +55,11 @@
     elements.historyEnabled.addEventListener("change", saveSettings);
     elements.maxItems.addEventListener("change", saveSettings);
     elements.hotkey.addEventListener("change", saveSettings);
+    elements.hotkey.addEventListener("keydown", captureHotkey);
+    elements.hotkeyCopyShortcut.addEventListener("click", function () {
+      elements.hotkey.value = "Alt+Shift+C";
+      saveSettings();
+    });
     elements.autoStart.addEventListener("change", saveSettings);
   }
 
@@ -75,6 +81,7 @@
 
   async function saveSettings() {
     try {
+      elements.hotkey.value = normalizeHotkeyInput(elements.hotkey.value);
       const settings = await call("UpdateSettings", {
         historyEnabled: elements.historyEnabled.checked,
         maxItems: Number(elements.maxItems.value) || 500,
@@ -88,6 +95,96 @@
       showError(error);
       await refreshSettings();
     }
+  }
+
+  function captureHotkey(event) {
+    if (event.key === "Tab") {
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      elements.hotkey.value = state.settings && state.settings.hotkey
+        ? state.settings.hotkey
+        : "Ctrl+Shift+Space";
+      return;
+    }
+
+    const key = normalizeHotkeyKey(event.key);
+    if (!key) {
+      if (isModifierKey(event.key)) {
+        event.preventDefault();
+      }
+      return;
+    }
+
+    const parts = [];
+    if (event.ctrlKey) {
+      parts.push("Ctrl");
+    }
+    if (event.altKey) {
+      parts.push("Alt");
+    }
+    if (event.shiftKey) {
+      parts.push("Shift");
+    }
+    if (!parts.length) {
+      return;
+    }
+
+    event.preventDefault();
+    parts.push(key);
+    elements.hotkey.value = parts.join("+");
+    saveSettings();
+  }
+
+  function normalizeHotkeyKey(value) {
+    const key = String(value || "");
+    if (isModifierKey(key)) {
+      return "";
+    }
+    if (key === " " || key === "Spacebar" || key === "Space") {
+      return "Space";
+    }
+    if (/^[a-z]$/i.test(key)) {
+      return key.toUpperCase();
+    }
+    if (/^[0-9]$/.test(key)) {
+      return key;
+    }
+    return "";
+  }
+
+  function isModifierKey(value) {
+    return ["Alt", "AltGraph", "Control", "Meta", "Shift"].includes(String(value || ""));
+  }
+
+  function normalizeHotkeyInput(value) {
+    return String(value || "")
+      .split("+")
+      .map(function (part) {
+        const token = part.trim();
+        if (/^control$/i.test(token)) {
+          return "Ctrl";
+        }
+        if (/^ctrl$/i.test(token)) {
+          return "Ctrl";
+        }
+        if (/^alt$/i.test(token) || /^option$/i.test(token)) {
+          return "Alt";
+        }
+        if (/^shift$/i.test(token)) {
+          return "Shift";
+        }
+        if (/^space$/i.test(token)) {
+          return "Space";
+        }
+        if (/^[a-z]$/i.test(token)) {
+          return token.toUpperCase();
+        }
+        return token;
+      })
+      .filter(Boolean)
+      .join("+");
   }
 
   async function refreshHistory() {

@@ -58,6 +58,8 @@ if (!utils) {
 
     triggerShortcutCopy(utils, function (event) {
       return saveAnalyticsEvent(utils, event);
+    }, function () {
+      return nativeBridge.openApp();
     }).catch(function (error) {
       reportBackgroundError(utils, "Handling shortcut command failed.", error);
     });

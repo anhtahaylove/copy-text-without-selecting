@@ -40,6 +40,7 @@
   `copyHistorySyncOutbox` is only a migration/fallback path.
 - Minimize restores via the configured global hotkey.
 - App menu quit exits the companion process.
+- Companion title bar, executable, and tray icons match the extension icon.
 - Tray icon is visible while the companion is running.
 - Tray left-click or double-click opens the companion when it is minimized.
 - Tray context menu supports Show, Minimize, and Quit.

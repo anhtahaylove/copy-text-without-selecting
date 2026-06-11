@@ -8,6 +8,7 @@ const MaxNativeResponseBytes = 1024 * 1024
 const MaxNativeResponseTextBytes = 256 * 1024
 const StoreSchemaVersion = 3
 const DefaultHistoryLimit = 500
+const MaxHistoryLimit = 9999
 const MaxStoredTextBytes = 512 * 1024
 const MaxPreviewTextBytes = 512 * 1024
 

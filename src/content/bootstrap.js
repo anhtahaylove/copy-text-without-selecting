@@ -76,13 +76,13 @@
     }
   }
 
-  function onRuntimeMessage(message) {
+  function onRuntimeMessage(message, sender, sendResponse) {
     if (!isExtensionUsable()) {
-      return;
+      return false;
     }
 
     if (!message || message.type != "COPY_TEXT_WITHOUT_SELECTING_SHORTCUT") {
-      return;
+      return false;
     }
 
     if (isCurrentHostExcluded() || !state.settings.keyboardShortcutEnabled) {
@@ -93,7 +93,8 @@
           toastKind: "status",
         });
       }
-      return;
+      sendResponse({ ok: false, copied: false, reason: "disabled-or-excluded" });
+      return false;
     }
 
     const shortcutTarget = helpers.resolveShortcutTarget();
@@ -103,7 +104,8 @@
         hostname: window.location.hostname,
       });
       helpers.showStatusToast(t("shortcut_unavailable", "No hovered or focused target to copy."));
-      return;
+      sendResponse({ ok: false, copied: false, reason: "no-target" });
+      return false;
     }
 
     if (helpers.shouldIgnoreElement(shortcutTarget)) {
@@ -113,17 +115,23 @@
         toastKind: "status",
       });
       helpers.showStatusToast(t("unsupported_surface_status", "Editing surface skipped"));
-      return;
+      sendResponse({ ok: false, copied: false, reason: "ignored-target" });
+      return false;
     }
 
     helpers.copyCommand(shortcutTarget, "shortcut", {
       preferSelection: true,
+    }).then(function (copied) {
+      sendResponse({ ok: !!copied, copied: !!copied });
     }).catch(function (error) {
       if (handleExtensionContextError(error)) {
+        sendResponse({ ok: false, copied: false, reason: "context-invalidated" });
         return;
       }
       console.error("Shortcut copy failed.", error);
+      sendResponse({ ok: false, copied: false, reason: "copy-failed" });
     });
+    return true;
   }
 
   function attachExtensionListeners() {

@@ -798,8 +798,8 @@ func clampMaxItems(value int) int {
 	if value < 1 {
 		return 1
 	}
-	if value > 5000 {
-		return 5000
+	if value > MaxHistoryLimit {
+		return MaxHistoryLimit
 	}
 	return value
 }

@@ -6,6 +6,7 @@ const assert = require("node:assert/strict");
 
 const releaseUtils = require("../scripts/lib/release-utils.cjs");
 const installNativeHost = require("../scripts/install-native-host-windows.cjs");
+const buildCompanion = require("../scripts/build-companion.cjs");
 
 test("validateManifestData rejects Firefox-only fields in the Chrome manifest", function () {
   const errors = releaseUtils.validateManifestData({
@@ -87,4 +88,39 @@ test("native host installer validates unpacked Chrome extension ids", function (
   assert.throws(function () {
     installNativeHost.validateExtensionId("short");
   }, /32-character Chrome extension ID/);
+});
+
+test("companion app icon source matches the extension icon", function () {
+  const extensionIcon = path.join(__dirname, "..", "icon.png");
+  const companionIcon = path.join(__dirname, "..", "companion", "assets", "appicon.png");
+
+  assert.deepEqual(fs.readFileSync(companionIcon), fs.readFileSync(extensionIcon));
+});
+
+test("syncWailsAppIcon stages icon and invalidates stale Windows ico", function () {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "copy-text-icon-"));
+  const sourceIcon = path.join(tempRoot, "source.png");
+  const extensionIcon = path.join(tempRoot, "extension.png");
+  const wailsAppIcon = path.join(tempRoot, "build", "appicon.png");
+  const wailsWindowsIcon = path.join(tempRoot, "build", "windows", "icon.ico");
+
+  fs.mkdirSync(path.dirname(wailsWindowsIcon), { recursive: true });
+  fs.writeFileSync(sourceIcon, "extension-icon");
+  fs.writeFileSync(extensionIcon, "extension-icon");
+  fs.writeFileSync(wailsAppIcon, "stale-icon");
+  fs.writeFileSync(wailsWindowsIcon, "stale-ico");
+
+  try {
+    buildCompanion.syncWailsAppIcon({
+      sourceIcon,
+      extensionIcon,
+      wailsAppIcon,
+      wailsWindowsIcon,
+    });
+
+    assert.equal(fs.readFileSync(wailsAppIcon, "utf8"), "extension-icon");
+    assert.equal(fs.existsSync(wailsWindowsIcon), false);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
 });

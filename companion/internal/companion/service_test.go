@@ -110,6 +110,27 @@ func TestSettingsPatchDisablesHistory(t *testing.T) {
 	}
 }
 
+func TestSettingsPatchAllowsUserMaxHistoryLimit(t *testing.T) {
+	service := newTestService(t)
+	maxItems := MaxHistoryLimit
+	settings, err := service.UpdateSettings(SettingsPatch{MaxItems: &maxItems})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.MaxItems != MaxHistoryLimit {
+		t.Fatalf("expected max items %d, got %#v", MaxHistoryLimit, settings)
+	}
+
+	tooHigh := MaxHistoryLimit + 1
+	settings, err = service.UpdateSettings(SettingsPatch{MaxItems: &tooHigh})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.MaxItems != MaxHistoryLimit {
+		t.Fatalf("expected max items to clamp to %d, got %#v", MaxHistoryLimit, settings)
+	}
+}
+
 func TestHandleEnvelopeRoutesHistoryPin(t *testing.T) {
 	service := newTestService(t)
 	record, err := service.RecordClipboardEvent(ClipboardEvent{Text: "pin me"})
