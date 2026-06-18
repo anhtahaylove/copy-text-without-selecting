@@ -6,11 +6,14 @@
 - `npm run test:e2e`
 - `npm run native:build`
 - `npm run native:test-host`
+- `npm run native:package-installer`
+- `npm run native:test-installer`
 - `npm run native:test-tray` from an interactive Windows desktop.
 - Stop any running `copy-text-companion.exe` process if `native:install-host`
   cannot replace the installed executable.
-- `$env:COPY_TEXT_DEV_EXTENSION_ID = "<unpacked extension id>"`
-- `npm run native:install-host`
+- Install release builds with
+  `dist/native/CopyTextCompanionSetup-v<version>.exe --extension-id <unpacked extension id>`.
+  Keep `npm run native:install-host` only as a developer fallback.
 - `npm run test:e2e:native`
 - `git diff --check`
 - Confirm GitHub Actions is green for both Ubuntu Chrome CI and Windows native
@@ -81,3 +84,5 @@
 - Confirm the Chrome native host registry key is removed from
   `HKCU\Software\Google\Chrome\NativeMessagingHosts` and
   `HKCU\Software\Chromium\NativeMessagingHosts`.
+- Confirm the Windows uninstall entry is removed from
+  `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\CopyTextWithoutSelectingCompanion`.

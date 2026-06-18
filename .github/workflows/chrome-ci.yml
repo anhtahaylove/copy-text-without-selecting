@@ -94,5 +94,11 @@ jobs:
       - name: Smoke native host protocol
         run: npm run native:test-host
 
+      - name: Package Windows installer
+        run: npm run native:package-installer
+
+      - name: Smoke Windows installer
+        run: npm run native:test-installer
+
       - name: Run native extension e2e
         run: npm run test:e2e:native
