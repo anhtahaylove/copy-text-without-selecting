@@ -13,6 +13,9 @@
 - `npm run native:install-host`
 - `npm run test:e2e:native`
 - `git diff --check`
+- Confirm GitHub Actions is green for both Ubuntu Chrome CI and Windows native
+  CI. Windows CI covers companion build, native host protocol smoke, and native
+  extension E2E; tray visual checks still require an interactive Windows desktop.
 - Load `dist/chrome/` as an unpacked extension in Chrome.
 - For unpacked testing, rerun install with `COPY_TEXT_DEV_EXTENSION_ID` set to
   the unpacked extension ID shown by Chrome.
