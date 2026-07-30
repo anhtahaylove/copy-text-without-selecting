@@ -1,7 +1,14 @@
+let initializationQueue = Promise.resolve();
+
 async function ensureSettings(utils) {
   const current = await utils.safeStorageGet("sync", utils.DEFAULT_SETTINGS);
   const merged = utils.mergeSettings(current);
-  await utils.safeStorageSet("sync", merged);
+  const changed = Object.keys(merged).some(function (key) {
+    return JSON.stringify(current[key]) !== JSON.stringify(merged[key]);
+  });
+  if (changed) {
+    await utils.safeStorageSet("sync", merged);
+  }
   return merged;
 }
 
@@ -10,23 +17,22 @@ async function syncContentScriptRegistration(utils, settings, contentScriptId) {
     return;
   }
 
-  try {
-    await utils.safeChromeAsync(function () {
-      return chrome.scripting.unregisterContentScripts({ ids: [contentScriptId] });
-    }, true);
-  } catch (error) {
-    reportBackgroundError(utils, "Unregistering prior content scripts failed.", error);
-  }
+  const definition = {
+    id: contentScriptId,
+    matches: ["http://*/*", "https://*/*"],
+    excludeMatches: utils.buildExcludeMatches(settings.excludedDomains),
+    js: ["shared.js", "menu.js"],
+    runAt: "document_start",
+    persistAcrossSessions: true,
+  };
+  const registered = await utils.safeChromeAsync(function () {
+    return chrome.scripting.getRegisteredContentScripts({ ids: [contentScriptId] });
+  }, []);
 
   await utils.safeChromeAsync(function () {
-    return chrome.scripting.registerContentScripts([{
-      id: contentScriptId,
-      matches: ["http://*/*", "https://*/*"],
-      excludeMatches: utils.buildExcludeMatches(settings.excludedDomains),
-      js: ["shared.js", "menu.js"],
-      runAt: "document_start",
-      persistAcrossSessions: true,
-    }]);
+    return registered && registered.length
+      ? chrome.scripting.updateContentScripts([definition])
+      : chrome.scripting.registerContentScripts([definition]);
   }, false);
 }
 
@@ -54,15 +60,19 @@ async function injectContentScriptsIntoOpenTabs(utils, settings) {
   }));
 }
 
-async function initializeExtension(utils, contentScriptId, trimHistory) {
-  if (!utils.isExtensionContextValid()) {
-    return;
-  }
+function initializeExtension(utils, contentScriptId, trimHistory) {
+  const next = initializationQueue.then(async function () {
+    if (!utils.isExtensionContextValid()) {
+      return;
+    }
 
-  const settings = await ensureSettings(utils);
-  await syncContentScriptRegistration(utils, settings, contentScriptId);
-  await injectContentScriptsIntoOpenTabs(utils, settings);
-  await trimHistory(settings.copyHistoryLimit);
+    const settings = await ensureSettings(utils);
+    await syncContentScriptRegistration(utils, settings, contentScriptId);
+    await injectContentScriptsIntoOpenTabs(utils, settings);
+    await trimHistory(settings.copyHistoryLimit);
+  });
+  initializationQueue = next.catch(function () {});
+  return next;
 }
 
 function reportBackgroundError(utils, message, error) {

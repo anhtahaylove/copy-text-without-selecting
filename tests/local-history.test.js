@@ -181,6 +181,26 @@ test("local history reports storage write failures", async function () {
   assert.equal(response.payload.local.ok, false);
 });
 
+test("local history trims multibyte payloads to its storage budget on add", async function () {
+  const storage = createStorage();
+  const controller = createLocalHistoryController(storage.utils);
+  const largeText = "界".repeat(800000);
+
+  await sendRuntimeMessage(controller, {
+    type: "COPY_TEXT_LOCAL_HISTORY_ADD",
+    payload: { limit: 10, entry: { text: largeText + "first", createdAt: 1 } },
+  });
+  await sendRuntimeMessage(controller, {
+    type: "COPY_TEXT_LOCAL_HISTORY_ADD",
+    payload: { limit: 10, entry: { text: largeText + "second", createdAt: 2 } },
+  });
+
+  const history = storage.read().copyHistory;
+  assert.equal(history.length, 1);
+  assert.match(history[0].text, /second$/);
+  assert.ok(new TextEncoder().encode(JSON.stringify(history)).length <= 4 * 1024 * 1024);
+});
+
 test("upgrade cleanup removes obsolete companion outbox storage", async function () {
   const originalChrome = global.chrome;
   const removedKeys = [];

@@ -7,10 +7,9 @@ const { test, expect, chromium } = require("@playwright/test");
 const FIXTURE_ROOT = path.join(__dirname, "..", "..", "fixtures");
 const EXTENSION_ROOT = path.join(__dirname, "..", "..", "dist", "chrome");
 const HOST = "127.0.0.1";
-const PORT = 4173;
-const BASE_URL = `http://${HOST}:${PORT}`;
 
 let server;
+let baseUrl;
 let context;
 let extensionId;
 let userDataDir;
@@ -31,7 +30,7 @@ function contentTypeFor(filePath) {
 
 async function startFixtureServer() {
   server = http.createServer(function (request, response) {
-    const requestPath = new URL(request.url, BASE_URL).pathname;
+    const requestPath = new URL(request.url, baseUrl).pathname;
     const relativePath = decodeURIComponent(requestPath.replace(/^\/+/, ""));
     const absolutePath = path.join(path.dirname(FIXTURE_ROOT), relativePath);
 
@@ -53,9 +52,18 @@ async function startFixtureServer() {
     response.end(fs.readFileSync(absolutePath));
   });
 
-  await new Promise(function (resolve) {
-    server.listen(PORT, HOST, resolve);
+  await new Promise(function (resolve, reject) {
+    function handleError(error) {
+      reject(error);
+    }
+    server.once("error", handleError);
+    server.listen(0, HOST, function () {
+      server.off("error", handleError);
+      resolve();
+    });
   });
+  const address = server.address();
+  baseUrl = `http://${HOST}:${address.port}`;
 }
 
 async function stopFixtureServer() {
@@ -63,10 +71,13 @@ async function stopFixtureServer() {
     return;
   }
 
-  await new Promise(function (resolve) {
-    server.close(resolve);
-  });
+  if (server.listening) {
+    await new Promise(function (resolve) {
+      server.close(resolve);
+    });
+  }
   server = null;
+  baseUrl = null;
 }
 
 async function launchExtensionContext() {
@@ -80,7 +91,7 @@ async function launchExtensionContext() {
     ],
   });
 
-  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE_URL });
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: baseUrl });
 
   let serviceWorker = context.serviceWorkers()[0];
   if (!serviceWorker) {
@@ -102,14 +113,16 @@ async function launchExtensionContext() {
 }
 
 async function closeExtensionContext() {
-  if (context) {
-    await context.close();
+  try {
+    if (context) {
+      await context.close();
+    }
+  } finally {
     context = null;
-  }
-
-  if (userDataDir) {
-    fs.rmSync(userDataDir, { recursive: true, force: true });
-    userDataDir = null;
+    if (userDataDir) {
+      fs.rmSync(userDataDir, { recursive: true, force: true });
+      userDataDir = null;
+    }
   }
 }
 
@@ -119,7 +132,7 @@ async function openPage(relativePath) {
   page.on("console", function (message) {
     consoleMessages.push(message.text());
   });
-  await page.goto(`${BASE_URL}/${relativePath}`);
+  await page.goto(`${baseUrl}/${relativePath}`);
   return { page, consoleMessages };
 }
 
@@ -164,8 +177,14 @@ async function altClick(target) {
 }
 
 test.beforeAll(async function () {
-  await startFixtureServer();
-  await launchExtensionContext();
+  try {
+    await startFixtureServer();
+    await launchExtensionContext();
+  } catch (error) {
+    await closeExtensionContext();
+    await stopFixtureServer();
+    throw error;
+  }
 });
 
 test.afterAll(async function () {

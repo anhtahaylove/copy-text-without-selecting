@@ -66,7 +66,9 @@ function createLocalHistoryController(utils) {
     }
 
     return enqueueStorage(async function () {
-      const history = utils.pushHistoryEntry(await readHistory(), payload.entry || {}, limit);
+      const history = trimHistoryToStorageBudget(
+        utils.pushHistoryEntry(await readHistory(), payload.entry || {}, limit)
+      );
       const stored = await writeHistory(history);
       return mutationResponse(stored, {
         stored: !!stored,
@@ -206,8 +208,8 @@ function createLocalHistoryController(utils) {
 function trimHistoryToStorageBudget(history) {
   const result = Array.isArray(history) ? history.slice() : [];
   const maxBytes = 4 * 1024 * 1024;
-  let serialized = JSON.stringify(result);
-  while (serialized.length > maxBytes && result.length > 1) {
+  let serializedBytes = new TextEncoder().encode(JSON.stringify(result)).length;
+  while (serializedBytes > maxBytes && result.length > 1) {
     let indexToRemove = result.length - 1;
     for (let index = result.length - 1; index >= 0; index -= 1) {
       if (!result[index].pinned) {
@@ -216,7 +218,7 @@ function trimHistoryToStorageBudget(history) {
       }
     }
     result.splice(indexToRemove, 1);
-    serialized = JSON.stringify(result);
+    serializedBytes = new TextEncoder().encode(JSON.stringify(result)).length;
   }
   return result;
 }

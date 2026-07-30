@@ -89,14 +89,20 @@ var DEFAULT_SETTINGS = {
     function normalizeDomain(value) {
         var trimmed = String(value || "").trim().toLowerCase();
         if (!trimmed) return "";
-        var normalized = trimmed.replace(/^\.+/, "");
+        var normalized = trimmed.replace(/^\*\./, "").replace(/^\.+/, "");
         try {
             var candidate = normalized.includes("://") ? normalized : "https://" + normalized;
             normalized = new URL(candidate).hostname.toLowerCase();
         } catch (error) {
-            normalized = normalized.split(/[/?#]/, 1)[0];
+            return "";
         }
-        return normalized.replace(/^\.+/, "");
+        normalized = normalized.replace(/^\*\./, "").replace(/\.$/, "");
+        if (!normalized || normalized.length > 253 || normalized.includes("*")) return "";
+        if (normalized.startsWith("[") && normalized.endsWith("]")) return normalized;
+        if (!normalized.split(".").every(function (label) {
+            return !!label && label.length <= 63 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label);
+        })) return "";
+        return normalized;
     }
 
     function normalizeExcludedDomains(input) {
@@ -144,7 +150,7 @@ var DEFAULT_SETTINGS = {
         var patterns = new Set();
         normalizeExcludedDomains(excludedDomains).forEach(function (domain) {
             patterns.add("*://" + domain + "/*");
-            patterns.add("*://*." + domain + "/*");
+            if (!domain.startsWith("[")) patterns.add("*://*." + domain + "/*");
         });
         return Array.from(patterns);
     }

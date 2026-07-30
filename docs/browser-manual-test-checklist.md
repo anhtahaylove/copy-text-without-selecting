@@ -3,7 +3,7 @@
 ## Setup
 
 1. Run `npm run validate`.
-2. Load the extension unpacked in Chrome from `C:\Users\VET\copy-text-without-selecting\dist\chrome`.
+2. Load the extension unpacked in Chrome from this repository's `dist\chrome` directory.
 3. Open `chrome://extensions/shortcuts` and confirm the extension commands are visible.
 4. Serve the fixtures with a local HTTP server:
 
@@ -97,6 +97,8 @@ python -m http.server 4173
 ## Reload / Update
 
 - Automated by Playwright: extension reload + page refresh still copies and does not spam `Extension context invalidated`.
+- [ ] In the existing Chrome profile, click **Reload** on the unpacked extension without removing it first
+- [ ] Existing settings, excluded domains, and local history remain intact after the in-place reload
 - [ ] Reloading the extension does not cause repeated `Extension context invalidated` console spam on refreshed pages
 - [ ] After extension reload + page refresh, copy still works on all fixture pages
 - [ ] Popup, history, and shortcut behavior still work after extension reload

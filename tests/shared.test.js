@@ -5,7 +5,11 @@ const utils = require("../src/shared/core.js");
 test("normalizeDomain strips protocol, paths, and leading dots", function () {
   assert.equal(utils.normalizeDomain("https://docs.google.com/document/d/123"), "docs.google.com");
   assert.equal(utils.normalizeDomain(".figma.com"), "figma.com");
+  assert.equal(utils.normalizeDomain("*.example.com"), "example.com");
+  assert.equal(utils.normalizeDomain("https://*.example.com/path"), "example.com");
   assert.equal(utils.normalizeDomain("sub.example.com/path?q=1"), "sub.example.com");
+  assert.equal(utils.normalizeDomain("bad host"), "");
+  assert.equal(utils.normalizeDomain("foo_.example.com"), "");
 });
 
 test("normalizeExcludedDomains deduplicates and normalizes values", function () {

@@ -28,31 +28,20 @@ function createContentEvents(context) {
     }
 
     claimCopyGesture(event);
-
-    const targetToCopy = hoverState.lastRenderedTarget;
     helpers.syncPointerState(event);
-
-    if (targetToCopy) {
-      helpers.executePrecisionCopy(targetToCopy, "click").catch(function (error) {
-        if (context.handleExtensionContextError(error)) {
-          return;
-        }
-        console.error("Copy failed.", error);
-      });
-    } else {
-      const composedTarget = event.composedPath ? event.composedPath()[0] : event.target;
-      const deepTarget = helpers.getElementNode(helpers.pierceShadowDOM(composedTarget, event.clientX, event.clientY));
-      helpers.copyCommand(deepTarget, "click", {
-        clientX: event.clientX,
-        clientY: event.clientY,
-        preferSelection: true,
-      }).catch(function (error) {
-        if (context.handleExtensionContextError(error)) {
-          return;
-        }
-        console.error("Copy failed.", error);
-      });
-    }
+    const composedTarget = event.composedPath ? event.composedPath()[0] : event.target;
+    const deepTarget = helpers.getElementNode(helpers.pierceShadowDOM(composedTarget, event.clientX, event.clientY));
+    hoverState.hoveredElement = deepTarget;
+    helpers.copyCommand(deepTarget, "click", {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      preferSelection: true,
+    }).catch(function (error) {
+      if (context.handleExtensionContextError(error)) {
+        return;
+      }
+      console.error("Copy failed.", error);
+    });
   }
 
   function claimCopyGesture(event) {

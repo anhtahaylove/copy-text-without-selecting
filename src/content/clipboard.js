@@ -76,7 +76,7 @@ function createContentClipboard(context, targeting, extraction, overlay, persist
       textArea.select();
       context.state.suppressNativeCopyTracking = true;
       if (!document.execCommand("copy")) {
-        console.error("Copy failed.");
+        throw new Error("Copy failed.");
       }
     } finally {
       context.state.suppressNativeCopyTracking = false;

@@ -18,24 +18,8 @@ function createContentPersistence(context) {
       lastReplayedAt: isSelectionBased ? Date.now() : 0,
     };
     const backgroundSaved = await saveHistoryThroughBackground(entry);
-    if (backgroundSaved) {
-      return;
-    }
-
-    try {
-      if (!settings().copyHistoryLimit) {
-        return;
-      }
-      const current = await utils.safeStorageGet("local", { copyHistory: [] });
-      const nextHistory = utils.pushHistoryEntry(current.copyHistory, entry, settings().copyHistoryLimit);
-
-      await utils.safeStorageSet("local", { copyHistory: nextHistory });
-    } catch (error) {
-      if (context.handleExtensionContextError(error)) {
-        return;
-      }
-
-      console.warn("Saving copy history failed.", error);
+    if (!backgroundSaved && utils.isExtensionContextValid()) {
+      console.warn("Saving copy history through the background service worker failed.");
     }
   }
 
