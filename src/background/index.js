@@ -8,7 +8,6 @@ const {
   initializeExtension,
   reportBackgroundError,
 } = require("./registration.js");
-const { createNativeMessagingBridge } = require("./native-messaging.js");
 const { createLocalHistoryController } = require("./local-history.js");
 const { triggerShortcutCopy } = require("./shortcut.js");
 
@@ -17,10 +16,9 @@ const CONTENT_SCRIPT_ID = "copy-text-with-alt-click-content";
 if (!utils) {
   console.error("CopyTextUtils is not available.");
 } else {
-  const nativeBridge = createNativeMessagingBridge(utils);
-  const localHistory = createLocalHistoryController(utils, nativeBridge);
-  localHistory.flushOutbox().catch(function (error) {
-    reportBackgroundError(utils, "Flushing pending companion history failed.", error);
+  const localHistory = createLocalHistoryController(utils);
+  localHistory.cleanupLegacyCompanionState().catch(function (error) {
+    reportBackgroundError(utils, "Removing obsolete companion sync data failed.", error);
   });
 
   utils.addListenerSafely(chrome.runtime.onInstalled, function () {
@@ -58,16 +56,13 @@ if (!utils) {
 
     triggerShortcutCopy(utils, function (event) {
       return saveAnalyticsEvent(utils, event);
-    }, function () {
-      return nativeBridge.openApp();
     }).catch(function (error) {
       reportBackgroundError(utils, "Handling shortcut command failed.", error);
     });
   });
 
   utils.addListenerSafely(chrome.runtime.onMessage, function (message, sender, sendResponse) {
-    return nativeBridge.handleRuntimeMessage(message, sender, sendResponse)
-      || localHistory.handleRuntimeMessage(message, sender, sendResponse);
+    return localHistory.handleRuntimeMessage(message, sender, sendResponse);
   });
 
   try {

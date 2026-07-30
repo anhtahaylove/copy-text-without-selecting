@@ -1,13 +1,13 @@
-async function triggerShortcutCopy(utils, saveAnalyticsEvent, openCompanion) {
+async function triggerShortcutCopy(utils, saveAnalyticsEvent) {
   const settings = utils.mergeSettings(await utils.safeStorageGet("sync", utils.DEFAULT_SETTINGS));
   if (!settings.keyboardShortcutEnabled) {
-    return { copied: false, opened: false, reason: "disabled" };
+    return { copied: false, reason: "disabled" };
   }
 
   const tabs = await utils.safeTabsQuery({ active: true, lastFocusedWindow: true });
   const activeTab = tabs[0];
   if (!activeTab || !activeTab.id || !activeTab.url) {
-    return { copied: false, opened: false, reason: "no-active-tab" };
+    return { copied: false, reason: "no-active-tab" };
   }
 
   const hostname = utils.getHostnameFromUrl(activeTab.url);
@@ -19,7 +19,7 @@ async function triggerShortcutCopy(utils, saveAnalyticsEvent, openCompanion) {
         toastKind: "status",
       });
     }
-    return { copied: false, opened: false, reason: "excluded-host" };
+    return { copied: false, reason: "excluded-host" };
   }
 
   let response = null;
@@ -29,7 +29,7 @@ async function triggerShortcutCopy(utils, saveAnalyticsEvent, openCompanion) {
     });
   } catch (error) {
     if (utils.isExtensionContextInvalidatedError(error)) {
-      return { copied: false, opened: false, reason: "context-invalidated" };
+      return { copied: false, reason: "context-invalidated" };
     }
 
     try {
@@ -43,30 +43,20 @@ async function triggerShortcutCopy(utils, saveAnalyticsEvent, openCompanion) {
       });
     } catch (secondError) {
       if (utils.isExtensionContextInvalidatedError(secondError)) {
-        return { copied: false, opened: false, reason: "context-invalidated" };
+        return { copied: false, reason: "context-invalidated" };
       }
-      return { copied: false, opened: false, reason: "send-failed" };
+      return { copied: false, reason: "send-failed" };
     }
   }
 
   if (!isShortcutCopySuccess(response)) {
     return {
       copied: false,
-      opened: false,
       reason: response && response.reason ? response.reason : "copy-not-confirmed",
     };
   }
 
-  if (typeof openCompanion !== "function") {
-    return { copied: true, opened: false, reason: "open-handler-missing" };
-  }
-
-  const openResponse = await openCompanion();
-  return {
-    copied: true,
-    opened: !!(openResponse && openResponse.ok),
-    openResponse: openResponse,
-  };
+  return { copied: true, reason: "copied" };
 }
 
 function isShortcutCopySuccess(response) {

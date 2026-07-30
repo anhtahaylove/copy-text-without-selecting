@@ -21,8 +21,6 @@ const { createPopupHistoryView } = require("./history-view.js");
     avoidEditable: document.getElementById("popup_avoid_editable"),
     toastDuration: document.getElementById("popup_toast_duration"),
     copyHistoryLimit: document.getElementById("popup_copy_history_limit"),
-    nativeStatus: document.getElementById("native_status"),
-    openCompanion: document.getElementById("open_companion"),
     openOptions: document.getElementById("open_options"),
     clearHistory: document.getElementById("clear_history"),
     historyList: document.getElementById("history_list"),
@@ -68,7 +66,6 @@ const { createPopupHistoryView } = require("./history-view.js");
       await context.state.restoreSettings();
       context.ui.applyMessages();
       await Promise.all([context.state.detectCurrentSite(), context.historyView.renderHistory()]);
-      refreshNativeStatus();
     } catch (error) {
       if (reportPopupError("Initializing popup failed.", error)) {
         return;
@@ -97,14 +94,6 @@ const { createPopupHistoryView } = require("./history-view.js");
         reportPopupError("Opening the options page failed.", error);
       });
     });
-    if (elements.openCompanion) {
-      elements.openCompanion.addEventListener("click", function () {
-        openNativeCompanion().catch(function (error) {
-          reportPopupError("Opening the native companion failed.", error);
-        });
-      });
-    }
-
     utils.addListenerSafely(chrome.storage.onChanged, function (changes, areaName) {
       if (!isExtensionUsable()) {
         return;
@@ -128,46 +117,4 @@ const { createPopupHistoryView } = require("./history-view.js");
     });
   }
 
-  async function refreshNativeStatus() {
-    if (!elements.nativeStatus || !isExtensionUsable()) {
-      return;
-    }
-
-    const response = await utils.safeChromeAsync(function () {
-      return chrome.runtime.sendMessage({ type: "COPY_TEXT_NATIVE_PING" });
-    }, null);
-
-    const connected = !!(response && response.ok);
-    elements.nativeStatus.classList.toggle("connected", connected);
-    elements.nativeStatus.textContent = connected
-      ? "Companion: connected"
-      : "Companion: local mode";
-    if (response && response.error && response.error.message) {
-      elements.nativeStatus.title = response.error.message;
-    }
-  }
-
-  async function openNativeCompanion() {
-    if (!isExtensionUsable()) {
-      return;
-    }
-
-    const response = await utils.safeChromeAsync(function () {
-      return chrome.runtime.sendMessage({ type: "COPY_TEXT_NATIVE_OPEN_APP" });
-    }, null);
-
-    const opened = !!(response && response.ok && response.payload && response.payload.opened);
-    if (opened) {
-      elements.nativeStatus.classList.add("connected");
-      elements.nativeStatus.textContent = "Companion: opened";
-      elements.nativeStatus.title = "";
-      return;
-    }
-
-    elements.nativeStatus.classList.remove("connected");
-    elements.nativeStatus.textContent = "Companion: local mode";
-    if (response && response.error && response.error.message) {
-      elements.nativeStatus.title = response.error.message;
-    }
-  }
 })();

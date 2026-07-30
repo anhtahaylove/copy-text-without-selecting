@@ -88,6 +88,17 @@ async function launchExtensionContext() {
   }
 
   extensionId = new URL(serviceWorker.url()).host;
+  await serviceWorker.evaluate(function () {
+    return chrome.storage.sync.set({ copyTextE2EInitialize: Date.now() });
+  });
+  await expect.poll(function () {
+    return serviceWorker.evaluate(async function () {
+      const scripts = await chrome.scripting.getRegisteredContentScripts({
+        ids: ["copy-text-with-alt-click-content"],
+      });
+      return scripts.length;
+    });
+  }, { timeout: 15000 }).toBe(1);
 }
 
 async function closeExtensionContext() {
@@ -301,6 +312,7 @@ test("copies hovered paragraph through the shortcut message path", async functio
 
 test("saves popup settings and excluded domains roundtrip", async function () {
   const popupPage = await openExtensionPage("popup.html");
+  await expect(popupPage.locator("#open_companion")).toHaveCount(0);
   await popupPage.selectOption("#popup_meta_key", "Ctrl");
   await popupPage.locator("#popup_copy_history_limit").fill("7");
   await popupPage.locator("#popup_preview_enabled").uncheck();

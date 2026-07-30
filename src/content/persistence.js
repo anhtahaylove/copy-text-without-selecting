@@ -17,23 +17,12 @@ function createContentPersistence(context) {
       replayCount: 0,
       lastReplayedAt: isSelectionBased ? Date.now() : 0,
     };
-    const nativeEvent = {
-      source: source || "click",
-      text: text,
-      url: window.location.href,
-      hostname: window.location.hostname,
-      title: document.title || "",
-      createdAt: Date.now(),
-      selectionBased: !!isSelectionBased,
-    };
-
-    const backgroundSaved = await saveHistoryThroughBackground(entry, nativeEvent);
+    const backgroundSaved = await saveHistoryThroughBackground(entry);
     if (backgroundSaved) {
       return;
     }
 
     try {
-      notifyNativeClipboardEvent(nativeEvent);
       if (!settings().copyHistoryLimit) {
         return;
       }
@@ -50,7 +39,7 @@ function createContentPersistence(context) {
     }
   }
 
-  async function saveHistoryThroughBackground(entry, nativeEvent) {
+  async function saveHistoryThroughBackground(entry) {
     if (!utils.isExtensionContextValid() || !chrome.runtime || typeof chrome.runtime.sendMessage !== "function") {
       return false;
     }
@@ -60,30 +49,12 @@ function createContentPersistence(context) {
         type: "COPY_TEXT_LOCAL_HISTORY_ADD",
         payload: {
           entry: entry,
-          nativeEvent: nativeEvent,
           limit: settings().copyHistoryLimit,
         },
       });
       return !!(response && response.ok);
     } catch (error) {
       return false;
-    }
-  }
-
-  function notifyNativeClipboardEvent(nativeEvent) {
-    if (!utils.isExtensionContextValid() || !chrome.runtime || typeof chrome.runtime.sendMessage !== "function") {
-      return;
-    }
-
-    try {
-      chrome.runtime.sendMessage({
-        type: "COPY_TEXT_NATIVE_CLIPBOARD_EVENT",
-        payload: nativeEvent,
-      }).catch(function () {
-        // The companion is optional; local history remains the fallback.
-      });
-    } catch (error) {
-      // Ignore optional companion bridge failures.
     }
   }
 

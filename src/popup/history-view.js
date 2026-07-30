@@ -186,16 +186,6 @@ function createPopupHistoryView(context) {
     };
     await sendHistoryMessage("COPY_TEXT_LOCAL_HISTORY_ADD", {
       entry,
-      nativeEvent: {
-        source: "history",
-        mode: "copy",
-        text,
-        url: item.url || "",
-        hostname,
-        title: "",
-        createdAt: Date.now(),
-        selectionBased: false,
-      },
       limit: context.getSettings().copyHistoryLimit,
     });
     const nextAnalytics = context.utils.recordAnalyticsEvent(current.copyAnalytics, {

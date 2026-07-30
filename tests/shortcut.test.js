@@ -50,7 +50,7 @@ test("isShortcutCopySuccess requires an explicit copied ack", function () {
   assert.equal(isShortcutCopySuccess(undefined), false);
 });
 
-test("shortcut copy opens companion after content confirms copy", async function () {
+test("shortcut copy completes after content confirms copy", async function () {
   const originalChrome = global.chrome;
   const events = [];
   global.chrome = {
@@ -63,20 +63,17 @@ test("shortcut copy opens companion after content confirms copy", async function
   };
 
   try {
-    const result = await triggerShortcutCopy(createShortcutUtils({ events: events }), async function () {}, async function () {
-      events.push({ type: "openCompanion" });
-      return { ok: true };
-    });
+    const result = await triggerShortcutCopy(createShortcutUtils({ events: events }), async function () {});
 
-    assert.deepEqual(events.map(function (event) { return event.type; }), ["sendMessage", "openCompanion"]);
+    assert.deepEqual(events.map(function (event) { return event.type; }), ["sendMessage"]);
     assert.equal(result.copied, true);
-    assert.equal(result.opened, true);
+    assert.equal(result.reason, "copied");
   } finally {
     global.chrome = originalChrome;
   }
 });
 
-test("shortcut copy does not open companion when content reports no copy", async function () {
+test("shortcut copy reports when content does not copy", async function () {
   const originalChrome = global.chrome;
   const events = [];
   global.chrome = {
@@ -89,21 +86,17 @@ test("shortcut copy does not open companion when content reports no copy", async
   };
 
   try {
-    const result = await triggerShortcutCopy(createShortcutUtils({ events: events }), async function () {}, async function () {
-      events.push({ type: "openCompanion" });
-      return { ok: true };
-    });
+    const result = await triggerShortcutCopy(createShortcutUtils({ events: events }), async function () {});
 
     assert.deepEqual(events.map(function (event) { return event.type; }), ["sendMessage"]);
     assert.equal(result.copied, false);
-    assert.equal(result.opened, false);
     assert.equal(result.reason, "no-target");
   } finally {
     global.chrome = originalChrome;
   }
 });
 
-test("shortcut copy injects content script before retrying and opening companion", async function () {
+test("shortcut copy injects the content script before retrying", async function () {
   const originalChrome = global.chrome;
   const events = [];
   let attempts = 0;
@@ -121,19 +114,15 @@ test("shortcut copy injects content script before retrying and opening companion
   };
 
   try {
-    const result = await triggerShortcutCopy(createShortcutUtils({ events: events }), async function () {}, async function () {
-      events.push({ type: "openCompanion" });
-      return { ok: true };
-    });
+    const result = await triggerShortcutCopy(createShortcutUtils({ events: events }), async function () {});
 
     assert.deepEqual(events.map(function (event) { return event.type; }), [
       "sendMessage",
       "executeScript",
       "sendMessage",
-      "openCompanion",
     ]);
     assert.equal(result.copied, true);
-    assert.equal(result.opened, true);
+    assert.equal(result.reason, "copied");
   } finally {
     global.chrome = originalChrome;
   }
