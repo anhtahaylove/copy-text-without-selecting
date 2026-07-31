@@ -1,6 +1,10 @@
-# Copy Text with Alt-Click
+# Copy Text Without Selecting
 
-Easy and fast copy tool for Chrome MV3.
+An independently maintained Chrome MV3 extension for copying text without
+manually selecting it first.
+
+This repository is the canonical home of the project:
+[anhtahaylove/copy-text-without-selecting](https://github.com/anhtahaylove/copy-text-without-selecting).
 
 ## Features
 
@@ -20,7 +24,10 @@ Easy and fast copy tool for Chrome MV3.
 
 ## Download
 
-- [Chrome Web Store](https://chrome.google.com/webstore/detail/copy-text-with-alt-click/obhagoegpnbklgknnmbglghkfdidegkl?authuser=0&hl=en "Copy text with Alt-Click - Chrome Web Store")
+- [Latest GitHub release](https://github.com/anhtahaylove/copy-text-without-selecting/releases/latest)
+
+Download the Chrome zip, extract it, open `chrome://extensions`, enable
+**Developer mode**, choose **Load unpacked**, and select the extracted folder.
 
 ## Description
 
@@ -56,6 +63,8 @@ The clicked text is copied immediately without manual selection in the common ca
 - `manifest.json` is the only supported shipping manifest
 - Authored JavaScript source lives under `src/`
 - Load unpacked from `dist/chrome/`, not from the repository root
+- Releases and development decisions are made in this repository without an
+  upstream synchronization requirement
 
 ## Development
 
@@ -96,6 +105,22 @@ python -m http.server 4173
 
 The build output is written to `dist/chrome/` and the packaged archive is written to `dist/`.
 
-![Screenshot](https://addons.mozilla.org/user-media/previews/full/193/193185.png?modified=1622132342)
+## Privacy
 
-( Icon designed by: [Mouse Runner.com](http://www.mouserunner.com/ "Mouse Runner.com, Good Content, Free Resources") )
+- Copy history, settings, and analytics stay in Chrome local storage.
+- The extension does not require an account, cloud sync, telemetry, or a
+  companion desktop application.
+
+## Project History and Credits
+
+This project is an independent continuation of the original
+[YujiSoftware/copy-text-without-selecting](https://github.com/YujiSoftware/copy-text-without-selecting)
+project, which was released under the MIT License. The original copyright and
+license notice remain in `LICENSE.txt`.
+
+Icon credit: [Mouse Runner.com](http://www.mouserunner.com/).
+
+## License
+
+[MIT](LICENSE.txt) — including the retained original copyright notice and the
+copyright notice for this independently maintained version.

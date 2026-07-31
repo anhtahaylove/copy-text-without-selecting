@@ -2,7 +2,7 @@
   "name": "copy-text-without-selecting",
   "version": "2.4.0",
   "private": true,
-  "description": "Manifest V3 browser extension for copying text with modifier-assisted clicks.",
+  "description": "Independently maintained Chrome MV3 extension for copying text with modifier-assisted clicks.",
   "scripts": {
     "test": "node --test",
     "test:e2e": "npm run build:chrome && playwright test",
