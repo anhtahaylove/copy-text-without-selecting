@@ -14,7 +14,7 @@
     "verify:release": "npm run validate && npm run test:e2e && npm run pack:chrome"
   },
   "devDependencies": {
-    "@playwright/test": "^1.60.0",
+    "@playwright/test": "^1.62.1",
     "esbuild": "^0.28.1"
   }
 }
