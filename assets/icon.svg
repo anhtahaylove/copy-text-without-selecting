@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Copy Text Without Selecting icon</title>
+  <desc id="description">Two white document sheets on a green circular badge.</desc>
+  <defs>
+    <linearGradient id="badge" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#8BE58D" />
+      <stop offset="0.46" stop-color="#35C65D" />
+      <stop offset="1" stop-color="#07933E" />
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.42" />
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+
+  <circle cx="256" cy="256" r="224" fill="url(#badge)" />
+  <circle cx="256" cy="256" r="220" fill="none" stroke="#067A35" stroke-width="8" stroke-opacity="0.72" />
+  <ellipse cx="224" cy="160" rx="164" ry="102" fill="url(#shine)" />
+
+  <rect
+    x="116"
+    y="108"
+    width="220"
+    height="282"
+    rx="30"
+    fill="#FFFFFF"
+    fill-opacity="0.12"
+    stroke="#E6FFEC"
+    stroke-width="26"
+    stroke-opacity="0.82"
+  />
+
+  <path
+    d="M196 148H310L390 228V390C390 405 378 417 363 417H196C181 417 169 405 169 390V175C169 160 181 148 196 148Z"
+    fill="#FFFFFF"
+    fill-opacity="0.16"
+    stroke="#FFFFFF"
+    stroke-width="28"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M310 150V207C310 219 319 228 331 228H388"
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-width="28"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <path d="M222 280H340" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" />
+  <path d="M222 328H340" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" />
+  <path d="M222 376H310" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" />
+</svg>

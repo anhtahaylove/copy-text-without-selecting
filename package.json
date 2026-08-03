@@ -10,7 +10,9 @@
     "check:manifest": "node scripts/check-manifest.cjs",
     "validate": "npm run test && npm run check:syntax && npm run check:manifest && npm run build:chrome",
     "build:chrome": "node scripts/build-chrome.cjs",
+    "icons:generate": "node scripts/generate-icons.cjs",
     "pack:chrome": "node scripts/pack-chrome.cjs",
+    "screenshots:release": "node scripts/capture-release-screenshots.cjs",
     "verify:release": "npm run validate && npm run test:e2e && npm run pack:chrome"
   },
   "devDependencies": {

@@ -6,6 +6,15 @@ manually selecting it first.
 This repository is the canonical home of the project:
 [anhtahaylove/copy-text-without-selecting](https://github.com/anhtahaylove/copy-text-without-selecting).
 
+The extension is distributed free through GitHub Releases and loaded as an
+unpacked Chrome extension. It is not distributed through the Chrome Web Store.
+
+## Screenshots
+
+| Quick controls and recent history | Full settings | Searchable history |
+| --- | --- | --- |
+| ![Extension popup](docs/screenshots/popup.png) | ![General settings](docs/screenshots/options-general.png) | ![History and local analytics](docs/screenshots/options-history.png) |
+
 ## Features
 
 - Copy text from page elements with a configurable modifier key
@@ -28,6 +37,10 @@ This repository is the canonical home of the project:
 
 Download the Chrome zip, extract it, open `chrome://extensions`, enable
 **Developer mode**, choose **Load unpacked**, and select the extracted folder.
+
+Keep that folder in a permanent location and replace its contents in place when
+updating so the unpacked extension identity and local data remain stable. See
+[INSTALL.md](INSTALL.md) for checksum, upgrade, and uninstall instructions.
 
 ## Description
 
@@ -68,6 +81,13 @@ The clicked text is copied immediately without manual selection in the common ca
 
 ## Development
 
+Install the locked dependencies and Playwright browser once:
+
+```bash
+npm ci
+npx playwright install chromium
+```
+
 Run the fast contract checks:
 
 ```bash
@@ -85,6 +105,23 @@ Create a release zip:
 ```bash
 npm run pack:chrome
 ```
+
+Refresh repository screenshots after a user-interface change:
+
+```bash
+npm run screenshots:release
+```
+
+Regenerate PNG icons from the original vector source:
+
+```bash
+npm run icons:generate
+```
+
+Release maintainers should follow the
+[free GitHub release checklist](docs/free-release-checklist.md) and use the
+[reviewed listing copy](docs/github-release-listing.md). Publishing is always a
+separate explicit step.
 
 ## Manual Test Fixtures
 
@@ -107,9 +144,16 @@ The build output is written to `dist/chrome/` and the packaged archive is writte
 
 ## Privacy
 
-- Copy history, settings, and analytics stay in Chrome local storage.
-- The extension does not require an account, cloud sync, telemetry, or a
-  companion desktop application.
+- Copy history and analytics stay in `chrome.storage.local`.
+- Preferences and excluded domains use `chrome.storage.sync`; Chrome may sync
+  them through the user's browser account when Chrome Sync is enabled.
+- The project does not operate a server or collect copied text, browsing data,
+  settings, or analytics.
+- The extension does not require an account, project-operated cloud service,
+  telemetry, or a companion desktop application.
+
+See the complete [privacy disclosure](PRIVACY.md), including permission purposes
+and deletion behavior.
 
 ## Project History and Credits
 
@@ -118,7 +162,8 @@ This project is an independent continuation of the original
 project, which was released under the MIT License. The original copyright and
 license notice remain in `LICENSE.txt`.
 
-Icon credit: [Mouse Runner.com](http://www.mouserunner.com/).
+The current icon is an original project asset maintained in
+[`assets/icon.svg`](assets/icon.svg).
 
 ## License
 

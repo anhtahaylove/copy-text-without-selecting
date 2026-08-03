@@ -7,13 +7,15 @@ const CHROME_DIST_DIR = path.join(DIST_ROOT, "chrome");
 const RELEASE_ARCHIVE_PREFIX = "copy-text-with-alt-click-chrome";
 const RELEASE_ROOT_ENTRIES = [
   "_locales",
-  "icon.png",
+  "icons",
+  "INSTALL.md",
   "LICENSE.txt",
   "manifest.json",
   "options.css",
   "options.html",
   "popup.css",
   "popup.html",
+  "PRIVACY.md",
 ];
 const BUNDLED_OUTPUT_FILES = [
   "background.js",
@@ -66,6 +68,27 @@ function validateManifestData(manifest, pkg) {
 
   if (!manifest.action || typeof manifest.action.default_popup !== "string" || !manifest.action.default_popup) {
     errors.push("manifest.json action.default_popup must be a non-empty string.");
+  }
+
+  const requiredIconSizes = ["16", "32", "48", "128"];
+  if (!manifest.icons || typeof manifest.icons !== "object") {
+    errors.push("manifest.json icons must define 16, 32, 48, and 128 pixel assets.");
+  } else {
+    for (const size of requiredIconSizes) {
+      if (typeof manifest.icons[size] !== "string" || !manifest.icons[size]) {
+        errors.push(`manifest.json icons.${size} must be a non-empty string.`);
+      }
+    }
+  }
+
+  if (!manifest.action || !manifest.action.default_icon || typeof manifest.action.default_icon !== "object") {
+    errors.push("manifest.json action.default_icon must define toolbar icon assets.");
+  } else {
+    for (const size of ["16", "32", "48"]) {
+      if (typeof manifest.action.default_icon[size] !== "string" || !manifest.action.default_icon[size]) {
+        errors.push(`manifest.json action.default_icon.${size} must be a non-empty string.`);
+      }
+    }
   }
 
   if (!Array.isArray(manifest.permissions)) {
