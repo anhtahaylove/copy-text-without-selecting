@@ -99,21 +99,7 @@ function createContentTargeting(context, dependencies) {
       return total + String(node.textContent || "").length;
     }, 0) + Math.min(Math.max(0, offset), String(textNode.textContent || "").length);
 
-    const sentenceBreaks = /[.!?\u3002\uff01\uff1f]+[\s]*/g;
-    const sentences = [];
-    let lastEnd = 0;
-    let match;
-    while ((match = sentenceBreaks.exec(text)) !== null) {
-      sentences.push({ start: lastEnd, end: match.index + match[0].length });
-      lastEnd = match.index + match[0].length;
-    }
-    if (lastEnd < text.length) {
-      sentences.push({ start: lastEnd, end: text.length });
-    }
-
-    if (sentences.length === 0) {
-      sentences.push({ start: 0, end: text.length });
-    }
+    const sentences = getSentenceSegments(text);
 
     let target = sentences[0];
     for (let index = 0; index < sentences.length; index += 1) {
@@ -136,6 +122,50 @@ function createContentTargeting(context, dependencies) {
     range.setStart(startBoundary.node, startBoundary.offset);
     range.setEnd(endBoundary.node, endBoundary.offset);
     return range;
+  }
+
+  function getSentenceSegments(text) {
+    let sentences = [];
+    if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+      const segmenter = new Intl.Segmenter(undefined, { granularity: "sentence" });
+      sentences = Array.from(segmenter.segment(text)).map(function (segment) {
+        return { start: segment.index, end: segment.index + segment.segment.length };
+      });
+    } else {
+      const sentenceBreaks = /[.!?\u3002\uff01\uff1f]+(?:\s+|$)/g;
+      let lastEnd = 0;
+      let match;
+      while ((match = sentenceBreaks.exec(text)) !== null) {
+        sentences.push({ start: lastEnd, end: match.index + match[0].length });
+        lastEnd = match.index + match[0].length;
+      }
+      if (lastEnd < text.length) {
+        sentences.push({ start: lastEnd, end: text.length });
+      }
+    }
+
+    if (!sentences.length) {
+      sentences.push({ start: 0, end: text.length });
+    }
+
+    return mergeAbbreviationSegments(text, sentences);
+  }
+
+  function mergeAbbreviationSegments(text, sentences) {
+    return sentences.reduce(function (merged, sentence) {
+      const previous = merged[merged.length - 1];
+      if (previous && endsWithNonTerminalAbbreviation(text.slice(previous.start, previous.end))) {
+        previous.end = sentence.end;
+        return merged;
+      }
+      merged.push({ start: sentence.start, end: sentence.end });
+      return merged;
+    }, []);
+  }
+
+  function endsWithNonTerminalAbbreviation(value) {
+    const trimmed = String(value || "").trim();
+    return /(?:\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|Mt|No)\.|\b(?:e\.g|i\.e)\.|(?:\b[A-Z]\.){2,})$/i.test(trimmed);
   }
 
   function findScopeParagraphElement(node) {
@@ -527,6 +557,39 @@ function createContentTargeting(context, dependencies) {
       && getPrecisionTargetIdentity(left) === getPrecisionTargetIdentity(right);
   }
 
+  function doesTargetContain(containerTarget, innerTarget) {
+    const containerRange = getTargetRange(containerTarget);
+    const innerRange = getTargetRange(innerTarget);
+    if (!containerRange || !innerRange) {
+      return false;
+    }
+
+    return containerRange.compareBoundaryPoints(Range.START_TO_START, innerRange) <= 0
+      && containerRange.compareBoundaryPoints(Range.END_TO_END, innerRange) >= 0;
+  }
+
+  function getTargetRange(target) {
+    if (!target) {
+      return null;
+    }
+    if (target.range && typeof target.range.cloneRange === "function") {
+      return target.range.cloneRange();
+    }
+
+    const node = target.node || target.element || target.anchor || target.table || target.container;
+    if (!node) {
+      return null;
+    }
+
+    const range = document.createRange();
+    try {
+      range.selectNodeContents(node);
+      return range;
+    } catch (error) {
+      return null;
+    }
+  }
+
   function resetScopeState() {
     hoverState.scopeLevel = SCOPE_EXACT;
     hoverState.scopeAnchorClientX = null;
@@ -596,6 +659,7 @@ function createContentTargeting(context, dependencies) {
     syncPointerState,
     resolveScopedTarget,
     expandToSentence,
+    getSentenceSegments,
     findScopeParagraphElement,
     getVisibleTextNodes,
     getTextBoundary,
@@ -614,6 +678,7 @@ function createContentTargeting(context, dependencies) {
     shouldIgnoreElement,
     getPrecisionTargetIdentity,
     isSamePrecisionTarget,
+    doesTargetContain,
     resetScopeState,
     resolveShortcutTarget,
     getDeepActiveElement,

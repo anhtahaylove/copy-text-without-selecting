@@ -101,3 +101,47 @@ test("wheel at the maximum scope does not consume page scrolling", function () {
 
   assert.equal(prevented, 0);
 });
+
+test("wheel skips scope levels that would shrink the exact target", function () {
+  let prevented = 0;
+  const baseTarget = { id: "base" };
+  const sentenceTarget = { id: "sentence" };
+  const paragraphTarget = { id: "paragraph" };
+  const hoverState = {
+    hoveredElement: {},
+    pointerClientX: 10,
+    pointerClientY: 20,
+    previewModifierActive: true,
+    scopeAnchorClientX: null,
+    scopeAnchorClientY: null,
+    scopeBaseTarget: null,
+    scopeLevel: 0,
+  };
+  const events = createContentEvents({
+    utils: {},
+    state: { settings: {}, hoverState },
+    helpers: {
+      SCOPE_EXACT: 0,
+      SCOPE_CONTAINER: 3,
+      shouldShowPreview: function () { return true; },
+      resolvePrecisionTarget: function () { return baseTarget; },
+      resolveScopedTarget: function (_element, _x, _y, level) {
+        return level === 1 ? sentenceTarget : paragraphTarget;
+      },
+      doesTargetContain: function (container, inner) {
+        return container === paragraphTarget || container === inner;
+      },
+      schedulePreviewUpdate: function () {},
+    },
+    isExtensionUsable: function () { return true; },
+  });
+
+  events.handleWheel({
+    deltaY: -100,
+    preventDefault: function () { prevented += 1; },
+  });
+
+  assert.equal(prevented, 1);
+  assert.equal(hoverState.scopeLevel, 2);
+  assert.equal(hoverState.scopeBaseTarget, baseTarget);
+});
