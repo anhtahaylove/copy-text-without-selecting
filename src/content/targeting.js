@@ -59,6 +59,7 @@ function createContentTargeting(context, dependencies) {
           rect: sentenceTarget.rect,
           text: sentenceTarget.text,
           textNodes: sentenceTarget.textNodes,
+          textSlices: sentenceTarget.textSlices,
           scopeLevel: SCOPE_SENTENCE,
         };
       }
@@ -94,9 +95,10 @@ function createContentTargeting(context, dependencies) {
       return null;
     }
 
+    const localOffset = Number.isFinite(offset) ? offset : 0;
     const absoluteOffset = textNodes.slice(0, targetNodeIndex).reduce(function (total, node) {
       return total + String(node.textContent || "").length;
-    }, 0) + Math.min(Math.max(0, offset), String(textNode.textContent || "").length);
+    }, 0) + Math.min(Math.max(0, localOffset), String(textNode.textContent || "").length);
 
     const sentences = getSentenceSegments(text);
 
@@ -118,12 +120,14 @@ function createContentTargeting(context, dependencies) {
     }
 
     const sentenceTextNodes = getTextNodesInSlice(textNodes, target.start, target.end);
+    const sentenceTextSlices = getTextSlicesInRange(textNodes, target.start, target.end);
     const range = createRangeAcrossBoundaries(startBoundary, endBoundary);
     return {
       range: range,
       rect: getVisibleSentenceRect(textNodes, target.start, target.end),
       text: text.slice(target.start, target.end).trim(),
       textNodes: sentenceTextNodes,
+      textSlices: sentenceTextSlices,
     };
   }
 
@@ -135,6 +139,21 @@ function createContentTargeting(context, dependencies) {
       consumed += length;
       return overlaps;
     });
+  }
+
+  function getTextSlicesInRange(textNodes, start, end) {
+    let consumed = 0;
+    const slices = [];
+    textNodes.forEach(function (node) {
+      const length = String(node.textContent || "").length;
+      const startOffset = Math.max(0, start - consumed);
+      const endOffset = Math.min(length, end - consumed);
+      consumed += length;
+      if (endOffset > startOffset) {
+        slices.push({ node: node, startOffset: startOffset, endOffset: endOffset });
+      }
+    });
+    return slices;
   }
 
   function createRangeAcrossBoundaries(startBoundary, endBoundary) {
@@ -292,12 +311,14 @@ function createContentTargeting(context, dependencies) {
   }
 
   function createScopeElementTarget(element, level) {
+    const textNodes = getVisibleTextNodes(element);
     return {
       kind: "scope",
       node: element,
       rect: element.getBoundingClientRect ? element.getBoundingClientRect() : null,
       text: extraction().collectVisibleText(element).trim(),
-      textNodes: getVisibleTextNodes(element),
+      textNodes: textNodes,
+      textSlices: textNodes.map(createWholeTextSlice),
       scopeLevel: level,
     };
   }
@@ -637,17 +658,21 @@ function createContentTargeting(context, dependencies) {
     if (!target) {
       return null;
     }
-    if (target.kind === "text" || target.kind === "element") {
-      return findScopeParagraphElement(target.node) || target.node || null;
-    }
     return target.node || target.element || target.anchor || target.table || target.container || null;
   }
 
   function isSamePrecisionTarget(left, right) {
-    return !!left
-      && !!right
-      && left.kind === right.kind
-      && getPrecisionTargetIdentity(left) === getPrecisionTargetIdentity(right);
+    if (!left || !right || left.kind !== right.kind) {
+      return false;
+    }
+    if (left.kind === "text" && left.node && right.node && left.node.nodeType === Node.TEXT_NODE && right.node.nodeType === Node.TEXT_NODE) {
+      const leftSentence = expandToSentence(left.node, left.caretOffset);
+      const rightSentence = expandToSentence(right.node, right.caretOffset);
+      if (leftSentence && rightSentence) {
+        return areTextSlicesEqual(leftSentence.textSlices, rightSentence.textSlices);
+      }
+    }
+    return getPrecisionTargetIdentity(left) === getPrecisionTargetIdentity(right);
   }
 
   function doesTargetContain(containerTarget, innerTarget) {
@@ -662,10 +687,14 @@ function createContentTargeting(context, dependencies) {
       }
     }
 
-    const containerTextNodes = getTargetTextNodes(containerTarget);
-    const innerTextNodes = getTargetTextNodes(innerTarget);
-    return innerTextNodes.length > 0 && innerTextNodes.every(function (node) {
-      return containerTextNodes.includes(node);
+    const containerTextSlices = getTargetTextSlices(containerTarget);
+    const innerTextSlices = getTargetTextSlices(innerTarget);
+    return innerTextSlices.length > 0 && innerTextSlices.every(function (innerSlice) {
+      return containerTextSlices.some(function (containerSlice) {
+        return containerSlice.node === innerSlice.node
+          && containerSlice.startOffset <= innerSlice.startOffset
+          && containerSlice.endOffset >= innerSlice.endOffset;
+      });
     });
   }
 
@@ -675,21 +704,41 @@ function createContentTargeting(context, dependencies) {
       && right.startContainer.getRootNode() === right.endContainer.getRootNode();
   }
 
-  function getTargetTextNodes(target) {
+  function getTargetTextSlices(target) {
     if (!target) {
       return [];
     }
+    if (Array.isArray(target.textSlices)) {
+      return target.textSlices;
+    }
     if (Array.isArray(target.textNodes)) {
-      return target.textNodes;
+      return target.textNodes.map(createWholeTextSlice);
     }
     const node = target.node || target.element || target.anchor || target.table || target.container;
     if (!node) {
       return [];
     }
     if (node.nodeType === Node.TEXT_NODE) {
-      return [node];
+      return [createWholeTextSlice(node)];
     }
-    return getVisibleTextNodes(node);
+    return getVisibleTextNodes(node).map(createWholeTextSlice);
+  }
+
+  function createWholeTextSlice(node) {
+    return { node: node, startOffset: 0, endOffset: String(node && node.textContent || "").length };
+  }
+
+  function areTextSlicesEqual(left, right) {
+    return Array.isArray(left)
+      && Array.isArray(right)
+      && left.length === right.length
+      && left.every(function (slice, index) {
+        const other = right[index];
+        return other
+          && slice.node === other.node
+          && slice.startOffset === other.startOffset
+          && slice.endOffset === other.endOffset;
+      });
   }
 
   function getTargetRange(target) {

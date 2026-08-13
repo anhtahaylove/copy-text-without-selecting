@@ -38,9 +38,16 @@
         <span id="shadow-scope-target" slot="visible">Visible target</span>
         <span> SECRET.</span>
     </div>
+    <p id="same-paragraph-scope"><span id="same-sentence-first">First scoped sentence.</span> <span id="same-sentence-second">Second scoped sentence.</span></p>
+    <div id="shadow-partial-scope-host">
+        <span id="shadow-partial-scope-target" slot="visible">First sentence. Target</span>
+    </div>
     <script>
         document.getElementById("shadow-scope-host").attachShadow({ mode: "open" }).innerHTML = `
             <section><p><slot name="visible"></slot> sentence.</p><p>Rendered sibling.</p></section>
+        `;
+        document.getElementById("shadow-partial-scope-host").attachShadow({ mode: "open" }).innerHTML = `
+            <p><slot name="visible"></slot> continues.</p>
         `;
     </script>
 </body>
