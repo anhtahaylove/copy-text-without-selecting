@@ -299,6 +299,11 @@ test("copies icon-only semantic actions without leaking ancestor text", async fu
     return readClipboard(page);
   }).toBe("Slotted Action");
 
+  await altClick(page.locator("#shadow-image-action-host img"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Slotted image action");
+
   await altClick(page.locator("#shadow-scoped-label-host").locator("#shadow-scoped-label-button"));
   await expect.poll(async function () {
     return readClipboard(page);
@@ -374,10 +379,18 @@ test("copies icon-only semantic actions without leaking ancestor text", async fu
   }).toBe("unchanged");
   expect((await readHistoryEntries()).length).toBe(historyBeforeUnlabelledAction.length);
 
+  await page.evaluate(async function () {
+    await navigator.clipboard.writeText("safe-mode-seed");
+  });
+  await altClick(page.locator("#shadow-editor-host").locator("#shadow-editor"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("safe-mode-seed");
+
   await altClick(page.locator("#hidden-descendant-action svg"));
   await expect.poll(async function () {
     return readClipboard(page);
-  }).toBe("unchanged");
+  }).toBe("safe-mode-seed");
   expect((await readHistoryEntries()).length).toBe(historyBeforeUnlabelledAction.length);
 
   await page.close();
@@ -457,6 +470,29 @@ test("copies a focused icon-only action through the shortcut path", async functi
     await chrome.tabs.sendMessage(targetTab.id, { type: "COPY_TEXT_WITHOUT_SELECTING_SHORTCUT" });
   });
   await inputPopupPage.close();
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("bcd");
+
+  await page.locator("#result-menu").hover();
+  await page.locator("#shadow-range-host").evaluate(function (host) {
+    const textNode = host.shadowRoot.getElementById("shadow-range-text").firstChild;
+    const range = document.createRange();
+    range.setStart(textNode, 1);
+    range.setEnd(textNode, 4);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+  const rangePopupPage = await openExtensionPage("popup.html");
+  await rangePopupPage.evaluate(async function () {
+    const tabs = await chrome.tabs.query({ lastFocusedWindow: true });
+    const targetTab = tabs.find(function (tab) {
+      return typeof tab.url === "string" && tab.url.includes("/fixtures/semantic-actions.html");
+    });
+    await chrome.tabs.sendMessage(targetTab.id, { type: "COPY_TEXT_WITHOUT_SELECTING_SHORTCUT" });
+  });
+  await rangePopupPage.close();
   await expect.poll(async function () {
     return readClipboard(page);
   }).toBe("bcd");

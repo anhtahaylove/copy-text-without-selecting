@@ -132,7 +132,11 @@ function createContentTargeting(context, dependencies) {
     const clientY = Number.isFinite(localContext.clientY) ? localContext.clientY : hoverState.pointerClientY;
 
     if (localContext.preferSelection !== false) {
-      const selectionTarget = getSelectionTarget(sourceElement, clientX, clientY);
+      const selectionTarget = getSelectionTarget(
+        sourceElement,
+        localContext.ignoreSelectionPointer ? null : clientX,
+        localContext.ignoreSelectionPointer ? null : clientY
+      );
       if (selectionTarget) {
         return selectionTarget;
       }
@@ -437,22 +441,39 @@ function createContentTargeting(context, dependencies) {
   }
 
   function shouldIgnoreElement(node) {
-    return settings().avoidEditable && utils.isEditableSurface(getElementNode(node));
+    if (!settings().avoidEditable) {
+      return false;
+    }
+    let element = getElementNode(node);
+    while (element) {
+      if (utils.isEditableSurface(element)) {
+        return true;
+      }
+      element = extraction().getComposedParentElement(element);
+    }
+    return false;
   }
 
   function resolveShortcutTarget() {
-    if (hoverState.hoveredElement && hoverState.hoveredElement.isConnected) {
-      return hoverState.hoveredElement;
+    const selection = window.getSelection ? window.getSelection() : null;
+    if (selection && selection.rangeCount && !selection.isCollapsed && String(selection.toString() || "").trim()) {
+      return selection.anchorNode || selection.getRangeAt(0).commonAncestorContainer;
     }
 
     const activeElement = getDeepActiveElement(document);
+    if (activeElement && (activeElement.nodeName == "INPUT" || activeElement.nodeName == "TEXTAREA")) {
+      const start = typeof activeElement.selectionStart == "number" ? activeElement.selectionStart : 0;
+      const end = typeof activeElement.selectionEnd == "number" ? activeElement.selectionEnd : 0;
+      if (end > start) {
+        return activeElement;
+      }
+    }
     if (activeElement && activeElement !== document.body && activeElement !== document.documentElement) {
       return activeElement;
     }
 
-    const selection = window.getSelection ? window.getSelection() : null;
-    if (selection && selection.anchorNode) {
-      return selection.anchorNode;
+    if (hoverState.hoveredElement && hoverState.hoveredElement.isConnected) {
+      return hoverState.hoveredElement;
     }
 
     return null;

@@ -232,6 +232,16 @@ function createContentExtraction(context, targeting) {
     if (node.nodeType == Node.ELEMENT_NODE && !targeting.isNodeVisible(node)) {
       return;
     }
+    if (node.nodeType == Node.ELEMENT_NODE) {
+      const tagName = node.nodeName.toUpperCase();
+      if (tagName === "IMG" || (tagName === "INPUT" && String(node.type || "").toLowerCase() === "image")) {
+        const alternative = String(node.getAttribute("alt") || "").trim();
+        if (alternative) {
+          parts.push(alternative);
+        }
+        return;
+      }
+    }
 
     let children;
     if (node.nodeType == Node.ELEMENT_NODE && node.nodeName.toUpperCase() === "SLOT" && typeof node.assignedNodes == "function") {

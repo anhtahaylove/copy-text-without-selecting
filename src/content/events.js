@@ -19,7 +19,9 @@ function createContentEvents(context) {
       return;
     }
 
-    if (helpers.shouldIgnoreElement(event.target)) {
+    const composedTarget = event.composedPath ? event.composedPath()[0] : event.target;
+    const deepTarget = helpers.getElementNode(helpers.pierceShadowDOM(composedTarget, event.clientX, event.clientY));
+    if (helpers.shouldIgnoreElement(deepTarget)) {
       helpers.saveAnalyticsEvent({
         type: "editableSkipped",
         hostname: window.location.hostname,
@@ -29,8 +31,6 @@ function createContentEvents(context) {
 
     claimCopyGesture(event);
     helpers.syncPointerState(event);
-    const composedTarget = event.composedPath ? event.composedPath()[0] : event.target;
-    const deepTarget = helpers.getElementNode(helpers.pierceShadowDOM(composedTarget, event.clientX, event.clientY));
     hoverState.hoveredElement = deepTarget;
     helpers.copyCommand(deepTarget, "click", {
       clientX: event.clientX,

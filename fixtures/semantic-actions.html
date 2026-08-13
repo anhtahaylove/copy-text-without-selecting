@@ -100,6 +100,9 @@
     <div id="shadow-text-action-host"><span>Slotted Action</span></div>
     <div id="shadow-scoped-label-host"></div>
     <div id="shadow-input-host"></div>
+    <div id="shadow-image-action-host"><img alt="Slotted image action" src="data:image/gif;base64,R0lGODlhAQABAAAAACw="></div>
+    <div id="shadow-editor-host"></div>
+    <div id="shadow-range-host"></div>
 
     <div id="nested-action" role="button" tabindex="0" aria-label="Outer card action">
         <a id="nested-action-link" href="https://example.com/nested-docs">Nested documentation</a>
@@ -139,7 +142,16 @@
         const inputRoot = document.getElementById("shadow-input-host").attachShadow({ mode: "open" });
         inputRoot.innerHTML = `<input id="shadow-selection-input" value="abcdef">`;
 
-        [textActionRoot, scopedLabelRoot].forEach(function (root) {
+        const imageActionRoot = document.getElementById("shadow-image-action-host").attachShadow({ mode: "open" });
+        imageActionRoot.innerHTML = `<button id="shadow-image-action-button" type="button"><slot></slot></button>`;
+
+        const editorRoot = document.getElementById("shadow-editor-host").attachShadow({ mode: "open" });
+        editorRoot.innerHTML = `<div id="shadow-editor" contenteditable="true">Shadow editable secret</div>`;
+
+        const rangeRoot = document.getElementById("shadow-range-host").attachShadow({ mode: "open" });
+        rangeRoot.innerHTML = `<p id="shadow-range-text">abcdef</p>`;
+
+        [textActionRoot, scopedLabelRoot, imageActionRoot].forEach(function (root) {
             root.querySelectorAll("button").forEach(function (button) {
                 button.addEventListener("click", function () {
                     window.fixtureActionClickCount += 1;
