@@ -155,6 +155,18 @@ async function updateSyncSettings(settings) {
   await extensionPage.close();
 }
 
+async function waitForSyncSetting(key, expectedValue) {
+  await expect.poll(async function () {
+    const extensionPage = await openExtensionPage("popup.html");
+    const value = await extensionPage.evaluate(async function (settingKey) {
+      const settings = await chrome.storage.sync.get(settingKey);
+      return settings[settingKey];
+    }, key);
+    await extensionPage.close();
+    return value;
+  }).toEqual(expectedValue);
+}
+
 async function readLatestHistoryText() {
   const extensionPage = await openExtensionPage("popup.html");
   const text = await extensionPage.evaluate(async function () {
@@ -464,7 +476,7 @@ test("copies regular, icon-only, and unlabeled links in every configured format"
   try {
     for (const item of cases) {
       await updateSyncSettings({ linkCopyFormat: item.format });
-      await page.waitForTimeout(100);
+      await waitForSyncSetting("linkCopyFormat", item.format);
 
       await altClick(page.locator("#result-link"));
       await expect.poll(async function () {
@@ -851,26 +863,31 @@ test("copies hovered paragraph through the shortcut message path", async functio
 });
 
 test("saves popup and link format settings with excluded domains roundtrip", async function () {
+  await updateSyncSettings({ linkCopyFormat: "url" });
   const popupPage = await openExtensionPage("popup.html");
   await expect(popupPage.locator("#open_companion")).toHaveCount(0);
   await popupPage.selectOption("#popup_meta_key", "Ctrl");
   await popupPage.locator("#popup_copy_history_limit").fill("7");
   await popupPage.locator("#popup_preview_enabled").uncheck();
-  await popupPage.waitForTimeout(250);
+  await expect(popupPage.locator("#popup_status")).toHaveText("Saved");
   await popupPage.close();
+  await waitForSyncSetting("metaKey", "Ctrl");
+  await waitForSyncSetting("copyHistoryLimit", 7);
+  await waitForSyncSetting("previewEnabled", false);
+  await waitForSyncSetting("linkCopyFormat", "url");
 
   let optionsPage = await openExtensionPage("options.html");
   await expect(optionsPage.locator("#meta_key")).toHaveValue("Ctrl");
   await expect(optionsPage.locator("#copy_history_limit")).toHaveValue("7");
   await expect(optionsPage.locator("#preview_enabled")).not.toBeChecked();
-  await expect(optionsPage.locator("#link_copy_format")).toHaveValue("markdown");
+  await expect(optionsPage.locator("#link_copy_format")).toHaveValue("url");
 
-  await optionsPage.selectOption("#link_copy_format", "url");
+  await optionsPage.selectOption("#link_copy_format", "text");
   await expect(optionsPage.locator("#save_status")).toHaveText("Saved");
   await optionsPage.close();
 
   optionsPage = await openExtensionPage("options.html");
-  await expect(optionsPage.locator("#link_copy_format")).toHaveValue("url");
+  await expect(optionsPage.locator("#link_copy_format")).toHaveValue("text");
   await optionsPage.selectOption("#link_copy_format", "markdown");
   await expect(optionsPage.locator("#save_status")).toHaveText("Saved");
 
@@ -882,15 +899,26 @@ test("saves popup and link format settings with excluded domains roundtrip", asy
 });
 
 test("blocks copy on excluded domain", async function () {
-  const { page } = await openPage("fixtures/basic-copy.html");
-  await page.evaluate(async function () {
-    await navigator.clipboard.writeText("unchanged");
+  const currentSettingsPage = await openExtensionPage("popup.html");
+  const previousDomains = await currentSettingsPage.evaluate(async function () {
+    const settings = await chrome.storage.sync.get({ excludedDomains: [] });
+    return settings.excludedDomains;
   });
-  await altClick(page.locator("#plain-text"));
-  await expect.poll(async function () {
-    return readClipboard(page);
-  }).toBe("unchanged");
-  await page.close();
+  await currentSettingsPage.close();
+  await updateSyncSettings({ excludedDomains: [HOST] });
+  const { page } = await openPage("fixtures/basic-copy.html");
+  try {
+    await page.evaluate(async function () {
+      await navigator.clipboard.writeText("unchanged");
+    });
+    await altClick(page.locator("#plain-text"));
+    await expect.poll(async function () {
+      return readClipboard(page);
+    }).toBe("unchanged");
+  } finally {
+    await page.close();
+    await updateSyncSettings({ excludedDomains: previousDomains });
+  }
 });
 
 test("extension reload plus page refresh does not break copy or spam invalidation errors", async function () {
