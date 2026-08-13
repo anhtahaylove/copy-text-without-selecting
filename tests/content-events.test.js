@@ -41,3 +41,63 @@ test("click copies the current event target instead of a stale preview target", 
   assert.equal(copiedTarget, currentTarget);
   assert.equal(hoverState.hoveredElement, currentTarget);
 });
+
+test("modifier release and leaving the document reset expanded scope", function () {
+  let resets = 0;
+  let hides = 0;
+  const hoverState = {
+    hoveredElement: { id: "target" },
+    previewModifierActive: true,
+  };
+  const events = createContentEvents({
+    utils: {
+      isModifierKeyEvent: function () { return true; },
+      isPrimaryModifierPressed: function () { return false; },
+    },
+    state: {
+      settings: { metaKey: "Alt" },
+      hoverState,
+    },
+    helpers: {
+      resetScopeState: function () { resets += 1; },
+      shouldShowPreview: function () { return false; },
+      hidePreview: function () { hides += 1; },
+    },
+    isExtensionUsable: function () { return true; },
+  });
+
+  events.handleModifierChange({ key: "Alt" });
+  events.handleMouseOut({ relatedTarget: null });
+
+  assert.equal(resets, 2);
+  assert.equal(hides, 2);
+  assert.equal(hoverState.previewModifierActive, false);
+  assert.equal(hoverState.hoveredElement, null);
+});
+
+test("wheel at the maximum scope does not consume page scrolling", function () {
+  let prevented = 0;
+  const events = createContentEvents({
+    utils: {},
+    state: {
+      settings: { metaKey: "Alt" },
+      hoverState: {
+        previewModifierActive: true,
+        scopeLevel: 3,
+      },
+    },
+    helpers: {
+      SCOPE_EXACT: 0,
+      SCOPE_CONTAINER: 3,
+      shouldShowPreview: function () { return true; },
+    },
+    isExtensionUsable: function () { return true; },
+  });
+
+  events.handleWheel({
+    deltaY: -100,
+    preventDefault: function () { prevented += 1; },
+  });
+
+  assert.equal(prevented, 0);
+});
