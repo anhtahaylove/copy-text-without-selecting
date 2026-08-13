@@ -117,7 +117,10 @@ function createContentTargeting(context, dependencies) {
 
     let target = sentences[0];
     for (let index = 0; index < sentences.length; index += 1) {
-      if (absoluteOffset >= sentences[index].start && absoluteOffset <= sentences[index].end) {
+      const sentence = sentences[index];
+      const includesOffset = absoluteOffset >= sentence.start
+        && (absoluteOffset < sentence.end || (index === sentences.length - 1 && absoluteOffset === sentence.end));
+      if (includesOffset) {
         target = sentences[index];
         break;
       }
