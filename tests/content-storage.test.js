@@ -117,6 +117,50 @@ test("successful precision copy resets expanded scope", async function () {
   }
 });
 
+test("precision copy snapshots history metadata before the async clipboard write", async function () {
+  let releaseClipboard;
+  const clipboardPending = new Promise(function (resolve) { releaseClipboard = resolve; });
+  const restoreNavigator = replaceGlobal("navigator", {
+    clipboard: {
+      writeText: function () { return clipboardPending; },
+    },
+  });
+  const restoreWindow = replaceGlobal("window", {
+    location: { hostname: "example.com" },
+  });
+  let currentFormat = "markdown";
+  let savedMetadata;
+  const clipboard = createContentClipboard({
+    state: { hoverState: {} },
+  }, {
+    resetScopeState: function () {},
+  }, {
+    getText: function () { return "[Docs](https://example.com/docs)"; },
+    getHtmlContent: function () { return ""; },
+    getCopyMetadata: function () { return { targetKind: "link", copyFormat: currentFormat }; },
+  }, {
+    showCopyFeedback: function () {},
+  }, {
+    getAnalyticsTypeForResult: function () { return "copy"; },
+    getToastAnalyticsKind: function () { return "copied"; },
+    saveAnalyticsEvents: function () {},
+    saveHistory: async function (_text, _result, _source, _selection, metadata) {
+      savedMetadata = metadata;
+    },
+  });
+
+  try {
+    const copyPromise = clipboard.executePrecisionCopy({ kind: "link", rect: {} }, "click");
+    currentFormat = "url";
+    releaseClipboard();
+    await copyPromise;
+    assert.deepEqual(savedMetadata, { targetKind: "link", copyFormat: "markdown" });
+  } finally {
+    restoreWindow();
+    restoreNavigator();
+  }
+});
+
 test("rich clipboard write publishes matching plain and HTML MIME blobs", async function () {
   let writtenItems;
   const restoreNavigator = replaceGlobal("navigator", {

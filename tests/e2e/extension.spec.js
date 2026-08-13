@@ -458,18 +458,21 @@ test("copies regular, icon-only, and unlabeled links in every configured format"
       regular: "[Example search result](https://example.com/search-result)",
       icon: "[Open documentation](https://example.com/icon-docs)",
       unlabeled: "[https://example.com/url-only](https://example.com/url-only)",
+      escaped: "[Docs \\[Beta\\] (Guide)](https://example.com/docs\\(v2\\))",
     },
     {
       format: "text",
       regular: "Example search result",
       icon: "Open documentation",
       unlabeled: "https://example.com/url-only",
+      escaped: "Docs [Beta] (Guide)",
     },
     {
       format: "url",
       regular: "https://example.com/search-result",
       icon: "https://example.com/icon-docs",
       unlabeled: "https://example.com/url-only",
+      escaped: "https://example.com/docs(v2)",
     },
   ];
 
@@ -484,7 +487,7 @@ test("copies regular, icon-only, and unlabeled links in every configured format"
       }).toBe(item.regular);
       const regularHtml = await readClipboardHtml(page);
       if (item.format === "markdown") {
-        expect(regularHtml).toContain('<a id="result-link"');
+        expect(regularHtml).toBe('<a href="https://example.com/search-result">Example search result</a>');
       } else {
         expect(regularHtml).toBe(item.regular);
       }
@@ -493,11 +496,22 @@ test("copies regular, icon-only, and unlabeled links in every configured format"
       await expect.poll(async function () {
         return readClipboard(page);
       }).toBe(item.icon);
+      expect(await readClipboardHtml(page)).toBe(item.format === "markdown"
+        ? '<a href="https://example.com/icon-docs">Open documentation</a>'
+        : item.icon);
 
       await altClick(page.locator("#url-only-link svg"));
       await expect.poll(async function () {
         return readClipboard(page);
       }).toBe(item.unlabeled);
+      expect(await readClipboardHtml(page)).toBe(item.format === "markdown"
+        ? '<a href="https://example.com/url-only">https://example.com/url-only</a>'
+        : item.unlabeled);
+
+      await altClick(page.locator("#markdown-special-link"));
+      await expect.poll(async function () {
+        return readClipboard(page);
+      }).toBe(item.escaped);
 
       const latestEntry = (await readHistoryEntries())[0];
       expect(latestEntry.targetKind).toBe("link");

@@ -16,6 +16,7 @@ function createContentClipboard(context, targeting, extraction, overlay, persist
     }
 
     const htmlContent = extraction.getHtmlContent(precisionTarget);
+    const copyMetadata = extraction.getCopyMetadata(precisionTarget);
     const result = "copied";
     await copy(text, htmlContent);
 
@@ -34,7 +35,7 @@ function createContentClipboard(context, targeting, extraction, overlay, persist
       });
     }
     persistence.saveAnalyticsEvents(analyticsEvents);
-    await persistence.saveHistory(text, result, source || "click", precisionTarget.kind == "selection", extraction.getCopyMetadata(precisionTarget));
+    await persistence.saveHistory(text, result, source || "click", precisionTarget.kind == "selection", copyMetadata);
     return true;
   }
 
