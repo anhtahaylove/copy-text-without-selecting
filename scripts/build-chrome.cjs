@@ -6,6 +6,7 @@ const {
   PROJECT_ROOT,
   copyReleaseFiles,
   getExpectedChromeOutputPaths,
+  normalizeReleaseTextFiles,
   readJson,
   validateManifestData,
   verifyChromeBuildOutput,
@@ -46,6 +47,7 @@ async function buildChrome() {
 
   copyReleaseFiles(PROJECT_ROOT, CHROME_DIST_DIR);
   await bundleChromeScripts(CHROME_DIST_DIR);
+  normalizeReleaseTextFiles(CHROME_DIST_DIR);
   const verification = verifyChromeBuildOutput(CHROME_DIST_DIR, getExpectedChromeOutputPaths(PROJECT_ROOT));
   if (verification.missing.length || verification.extras.length) {
     const messages = [];

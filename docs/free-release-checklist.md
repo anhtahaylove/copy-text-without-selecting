@@ -37,7 +37,21 @@ git diff --check
 - [ ] Playwright E2E tests pass.
 - [ ] `dist\copy-text-with-alt-click-chrome-vX.Y.Z.zip` exists.
 - [ ] `dist\SHA256SUMS.txt` exists and names the same zip.
-- [ ] A second `npm run pack:chrome` produces the same zip SHA-256.
+- [ ] `npm run check:release-reproducibility` passes.
+
+## GitHub Actions release package
+
+- [ ] Merge the release commit through the protected `master` branch.
+- [ ] Create and push the semantic-version tag from that exact commit.
+- [ ] Confirm **Release Package** passes for `refs/tags/vX.Y.Z`.
+- [ ] Download the `chrome-release-vX.Y.Z` Actions artifact.
+- [ ] Verify the downloaded ZIP against its bundled `SHA256SUMS.txt`.
+- [ ] Never substitute a locally built ZIP for the GitHub Actions artifact.
+- [ ] If the tag-triggered run must be retried, dispatch it from the tag ref:
+
+  ```powershell
+  gh workflow run release-package.yml --ref vX.Y.Z
+  ```
 
 ## Manual Chrome smoke
 
@@ -54,7 +68,8 @@ git diff --check
 ## Draft release only
 
 - [ ] Create a GitHub release as **Draft** for the intended tag.
-- [ ] Attach only the Chrome zip and `SHA256SUMS.txt`.
+- [ ] Attach only the Chrome zip and `SHA256SUMS.txt` downloaded from the
+      successful **Release Package** run.
 - [ ] Copy the reviewed release description and installation warning.
 - [ ] Download both draft assets and independently verify the checksum.
 - [ ] Confirm the draft is not marked published or latest.
@@ -68,7 +83,7 @@ git diff --check
 
 ## Post-publish attestation
 
-- [ ] Confirm **Release Artifact Attestation** passes for the published tag.
+- [ ] Confirm **Published Release Verification** passes for the published tag.
 - [ ] Download the published Chrome zip and verify it with GitHub CLI:
 
   ```powershell
@@ -76,4 +91,8 @@ git diff --check
   ```
 
 - [ ] If the automatic release event did not run, dispatch the workflow
-      manually with the exact published tag.
+      manually with the exact published tag:
+
+  ```powershell
+  gh workflow run release-artifact-attestation.yml -f tag=vX.Y.Z
+  ```

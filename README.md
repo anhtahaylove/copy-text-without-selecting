@@ -102,11 +102,15 @@ Run the browser automation smoke suite:
 npm run test:e2e
 ```
 
-Create a release zip:
+Check locally that release packaging is reproducible:
 
 ```bash
-npm run pack:chrome
+npm run check:release-reproducibility
 ```
+
+Official release ZIPs are built from semantic-version tags by the
+**Release Package** GitHub Actions workflow. Local packages are for validation
+only and must not be uploaded as release assets.
 
 Refresh repository screenshots after a user-interface change:
 

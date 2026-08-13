@@ -24,6 +24,17 @@ const BUNDLED_OUTPUT_FILES = [
   "popup.js",
   "shared.js",
 ];
+const RELEASE_TEXT_EXTENSIONS = new Set([
+  ".css",
+  ".html",
+  ".js",
+  ".json",
+  ".md",
+  ".svg",
+  ".txt",
+  ".yaml",
+  ".yml",
+]);
 
 function toPosixPath(value) {
   return String(value).split(path.sep).join("/");
@@ -31,6 +42,24 @@ function toPosixPath(value) {
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function isReleaseTextPath(filePath) {
+  return RELEASE_TEXT_EXTENSIONS.has(path.extname(String(filePath)).toLowerCase());
+}
+
+function normalizeLineEndings(content) {
+  return String(content).replace(/\r\n?/g, "\n");
+}
+
+function writeNormalizedReleaseFile(sourcePath, destinationPath, relativePath) {
+  if (!isReleaseTextPath(relativePath)) {
+    fs.copyFileSync(sourcePath, destinationPath);
+    return;
+  }
+
+  const normalized = normalizeLineEndings(fs.readFileSync(sourcePath, "utf8"));
+  fs.writeFileSync(destinationPath, normalized, "utf8");
 }
 
 function validateManifestData(manifest, pkg) {
@@ -160,12 +189,30 @@ function copyReleaseFiles(projectRoot = PROJECT_ROOT, outputDir = CHROME_DIST_DI
   for (const entry of entries) {
     const destinationPath = path.join(outputDir, entry.relativePath);
     fs.mkdirSync(path.dirname(destinationPath), { recursive: true });
-    fs.copyFileSync(entry.sourcePath, destinationPath);
+    writeNormalizedReleaseFile(entry.sourcePath, destinationPath, entry.relativePath);
   }
 
   return entries.map(function (entry) {
     return entry.relativePath;
   });
+}
+
+function normalizeReleaseTextFiles(rootDir) {
+  const normalizedPaths = [];
+  for (const relativePath of listFilesRecursive(rootDir)) {
+    if (!isReleaseTextPath(relativePath)) {
+      continue;
+    }
+
+    const filePath = path.join(rootDir, relativePath);
+    const original = fs.readFileSync(filePath, "utf8");
+    const normalized = normalizeLineEndings(original);
+    if (normalized !== original) {
+      fs.writeFileSync(filePath, normalized, "utf8");
+    }
+    normalizedPaths.push(relativePath);
+  }
+  return normalizedPaths;
 }
 
 function listFilesRecursive(rootDir) {
@@ -315,7 +362,10 @@ module.exports = {
   ensureCleanDir,
   getExpectedChromeOutputPaths,
   getReleaseEntries,
+  isReleaseTextPath,
   listFilesRecursive,
+  normalizeLineEndings,
+  normalizeReleaseTextFiles,
   readJson,
   toPosixPath,
   validateManifestData,

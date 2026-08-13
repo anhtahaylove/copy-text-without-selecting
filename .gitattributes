@@ -1,5 +1,8 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Keep repository and release text byte-identical across operating systems.
+* text=auto eol=lf
+
+# Never apply text conversion to generated image assets.
+*.png binary -eol
 
 # Custom for Visual Studio
 *.cs     diff=csharp
