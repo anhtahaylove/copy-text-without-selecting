@@ -1,6 +1,6 @@
 {
   "name": "copy-text-without-selecting",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "private": true,
   "description": "Independently maintained Chrome MV3 extension for copying text with modifier-assisted clicks.",
   "scripts": {
