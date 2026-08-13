@@ -543,7 +543,7 @@ test("copies a focused icon-only action through the shortcut path", async functi
 
 test("keeps expanded scope through tiny pointer movement and supports contraction", async function () {
   const { page } = await openPage("fixtures/scope-preview.html");
-  const point = await getTextRangePoint(page, "#scope-text", "Second target sentence");
+  const point = await getTextRangePoint(page, "#inline-scope-text strong", "bold target words");
 
   await page.keyboard.down("Alt");
   await page.mouse.move(point.x, point.y);
@@ -553,7 +553,7 @@ test("keeps expanded scope through tiny pointer movement and supports contractio
   await page.keyboard.up("Alt");
   await expect.poll(async function () {
     return readClipboard(page);
-  }).toBe("Second target sentence.");
+  }).toBe("First bold target words ending here.");
 
   await page.keyboard.down("Alt");
   await page.mouse.move(point.x, point.y);
@@ -563,14 +563,14 @@ test("keeps expanded scope through tiny pointer movement and supports contractio
   await page.keyboard.up("Alt");
   await expect.poll(async function () {
     return readClipboard(page);
-  }).toBe("First sentence. Second target sentence. Third sentence.");
+  }).toBe("bold target words");
 
   await page.close();
 });
 
 test("selects the following sentence at its first-character boundary", async function () {
   const { page } = await openPage("fixtures/scope-preview.html");
-  const point = await getTextStartPoint(page, "#scope-text", "Second target sentence");
+  const point = await getTextStartPoint(page, "#sentence-edge-target", "Second target sentence");
 
   await page.keyboard.down("Alt");
   await page.mouse.move(point.x, point.y);
@@ -581,6 +581,38 @@ test("selects the following sentence at its first-character boundary", async fun
   await expect.poll(async function () {
     return readClipboard(page);
   }).toBe("Second target sentence.");
+  await page.close();
+});
+
+test("keeps abbreviations, decimals, and URLs inside their sentences", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const point = await getTextRangePoint(page, "#abbreviation-target", "Smith wrote this sentence");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Dr. Smith wrote this sentence.");
+  await page.close();
+});
+
+test("never shrinks a whole-text exact target when expanding scope", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const point = await getTextRangePoint(page, "#scope-text", "Second target sentence");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("First sentence. Second target sentence. Third sentence.");
   await page.close();
 });
 
