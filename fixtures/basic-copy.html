@@ -81,6 +81,17 @@ Textarea content line 2</textarea>
                 </select>
             </label>
         </section>
+
+        <section class="card">
+            <h2>Rich HTML sanitizer</h2>
+            <div id="rich-sanitizer-target">
+                <strong>Safe rich text</strong>
+                <a href="https://example.com/safe" onclick="window.__unsafe = true" style="background: url(javascript:alert(1))">safe link</a>
+                <span onclick="window.__unsafe = true" style="color: red" data-track-id="secret">kept text</span>
+                <iframe srcdoc="&lt;script&gt;window.__unsafe = true&lt;/script&gt;"></iframe>
+                <object data="data:text/html,unsafe">object fallback</object>
+            </div>
+        </section>
     </div>
 </body>
 </html>

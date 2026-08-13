@@ -6,7 +6,8 @@ var DEFAULT_SETTINGS = {
         toastDurationMs: 1400,
         uiLanguage: "auto",
         copyHistoryLimit: 20,
-        keyboardShortcutEnabled: true
+        keyboardShortcutEnabled: true,
+        linkCopyFormat: "markdown"
     };
     var VI_RUNTIME_OVERRIDES = {
         meta_key_help: "Giữ phím copy rồi click để copy nhanh nội dung trên trang.",
@@ -34,6 +35,8 @@ var DEFAULT_SETTINGS = {
 
     var SUPPORTED_META_KEYS = ["Alt", "Ctrl", "Shift"];
     var SUPPORTED_UI_LANGUAGES = ["auto", "en", "vi"];
+    var SUPPORTED_LINK_COPY_FORMATS = ["markdown", "text", "url"];
+    var SUPPORTED_HISTORY_TARGET_KINDS = ["action", "code", "control", "image", "link", "list", "scope", "selection", "table", "text"];
     var SMART_FORMATS = ["plain", "json", "sql", "jwt", "timestamp", "date", "base64"];
     var DEFAULT_COPY_HISTORY_LIMIT = 20;
     var MAX_COPY_HISTORY_LIMIT = 9999;
@@ -52,6 +55,9 @@ var DEFAULT_SETTINGS = {
         scope_sentence: "Câu", scope_paragraph: "Đoạn", scope_container: "Vùng chứa",
         target_type_action: "Thao tác", target_type_link: "Liên kết", target_type_table: "Bảng", target_type_code: "Mã", target_type_list: "Danh sách",
         target_type_image: "Hình ảnh", target_type_control: "Điều khiển", target_type_selection: "Vùng chọn", target_type_text: "Văn bản",
+        link_copy_format_label: "Định dạng khi copy liên kết", link_copy_format_help: "Chọn Markdown, chỉ nhãn hiển thị hoặc URL đầy đủ khi copy liên kết.",
+        link_copy_format_markdown: "Markdown", link_copy_format_text: "Chỉ văn bản", link_copy_format_url: "Chỉ URL",
+        copy_format_markdown: "Markdown", copy_format_text: "Văn bản", copy_format_url: "URL",
         avoid_editable_label: "Bỏ qua vùng có thể chỉnh sửa", avoid_editable_help: "Tránh kích hoạt copy trong editor contenteditable và vùng nhập liệu nâng cao.",
         keyboard_shortcut_enabled_label: "Chế độ phím tắt", keyboard_shortcut_enabled_help: "Cho phép dùng phím tắt của extension để copy phần tử đang hover hoặc đang focus mà không cần click.",
         keyboard_shortcut_hint: "Bạn có thể đổi phím tắt trong chrome://extensions/shortcuts.",
@@ -123,6 +129,7 @@ var DEFAULT_SETTINGS = {
         return Number.isFinite(duration) ? Math.min(8000, Math.max(300, Math.round(duration))) : DEFAULT_SETTINGS.toastDurationMs;
     }
     function normalizeUiLanguage(value) { return SUPPORTED_UI_LANGUAGES.includes(value) ? value : DEFAULT_SETTINGS.uiLanguage; }
+    function normalizeLinkCopyFormat(value) { return SUPPORTED_LINK_COPY_FORMATS.includes(value) ? value : DEFAULT_SETTINGS.linkCopyFormat; }
     function normalizeCopyHistoryLimit(value) {
         var limit = Number(value);
         return Number.isFinite(limit) ? Math.min(MAX_COPY_HISTORY_LIMIT, Math.max(0, Math.round(limit))) : DEFAULT_COPY_HISTORY_LIMIT;
@@ -138,7 +145,8 @@ var DEFAULT_SETTINGS = {
             toastDurationMs: normalizeToastDuration(input.toastDurationMs),
             uiLanguage: normalizeUiLanguage(input.uiLanguage),
             copyHistoryLimit: normalizeCopyHistoryLimit(input.copyHistoryLimit),
-            keyboardShortcutEnabled: input.keyboardShortcutEnabled !== false
+            keyboardShortcutEnabled: input.keyboardShortcutEnabled !== false,
+            linkCopyFormat: normalizeLinkCopyFormat(input.linkCopyFormat)
         };
     }
 
@@ -577,7 +585,7 @@ var DEFAULT_SETTINGS = {
         if (!entry) return null;
         var normalizedText = String(entry.text === undefined || entry.text === null ? "" : entry.text);
         if (!normalizedText.trim()) return null;
-        return {
+        var normalizedEntry = {
             id: String(entry.id || (Date.now() + "-" + Math.random().toString(16).slice(2))),
             text: normalizedText,
             snippet: getTextSnippet(entry.snippet || normalizedText),
@@ -591,6 +599,13 @@ var DEFAULT_SETTINGS = {
             replayCount: Number(entry.replayCount || 0),
             lastReplayedAt: Number(entry.lastReplayedAt || 0)
         };
+        if (SUPPORTED_HISTORY_TARGET_KINDS.includes(entry.targetKind)) {
+            normalizedEntry.targetKind = entry.targetKind;
+        }
+        if (SUPPORTED_LINK_COPY_FORMATS.includes(entry.copyFormat)) {
+            normalizedEntry.copyFormat = entry.copyFormat;
+        }
+        return normalizedEntry;
     }
 
     function pushHistoryEntry(entries, entry, limit) {
@@ -607,6 +622,10 @@ var DEFAULT_SETTINGS = {
             existing.url = normalizedEntry.url;
             existing.hostname = normalizedEntry.hostname;
             existing.mode = normalizedEntry.mode;
+            if (normalizedEntry.targetKind) existing.targetKind = normalizedEntry.targetKind;
+            else delete existing.targetKind;
+            if (normalizedEntry.copyFormat) existing.copyFormat = normalizedEntry.copyFormat;
+            else delete existing.copyFormat;
             existing.pinned = existing.pinned || normalizedEntry.pinned;
             nextEntries = nextEntries.filter(function (item) { return item.id !== existing.id; });
             nextEntries.unshift(existing);
@@ -947,6 +966,7 @@ module.exports = {
     DEFAULT_ANALYTICS: DEFAULT_ANALYTICS,
     SUPPORTED_META_KEYS: SUPPORTED_META_KEYS,
     SUPPORTED_UI_LANGUAGES: SUPPORTED_UI_LANGUAGES,
+    SUPPORTED_LINK_COPY_FORMATS: SUPPORTED_LINK_COPY_FORMATS,
     SMART_FORMATS: SMART_FORMATS,
     UI_MESSAGES: VI_MESSAGES,
     normalizeDomain: normalizeDomain,
@@ -954,6 +974,7 @@ module.exports = {
     normalizeMetaKey: normalizeMetaKey,
     normalizeToastDuration: normalizeToastDuration,
     normalizeUiLanguage: normalizeUiLanguage,
+    normalizeLinkCopyFormat: normalizeLinkCopyFormat,
     normalizeCopyHistoryLimit: normalizeCopyHistoryLimit,
     mergeSettings: mergeSettings,
     isExcludedHost: isExcludedHost,

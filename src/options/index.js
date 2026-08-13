@@ -84,6 +84,11 @@
         reportOptionsError("Saving options failed.", error);
       });
     });
+    document.getElementById("link_copy_format").addEventListener("change", function () {
+      context.settingsForm.saveOptions().catch(function (error) {
+        reportOptionsError("Saving options failed.", error);
+      });
+    });
     document.getElementById("preview_enabled").addEventListener("change", function () {
       context.settingsForm.saveOptions().catch(function (error) {
         reportOptionsError("Saving options failed.", error);

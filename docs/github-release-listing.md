@@ -20,7 +20,7 @@ keyboard shortcuts, and developer-friendly text transforms.
 
 Copy Text Without Selecting removes the drag-to-select step from everyday web
 copying. Hold the configured modifier key and click a page target to copy its
-useful text. Links can be copied as Markdown, tables as TSV, and form controls
+useful text. Links can be copied as Markdown, visible text, or a resolved URL; tables as TSV; and form controls
 as their current values.
 
 The popup provides quick site controls and recent history. The options page adds
@@ -37,7 +37,7 @@ server, account, advertising, telemetry, cloud history, or companion app.
 Copy Text Without Selecting là extension Chrome MV3 miễn phí, giúp copy nội
 dung trên trang web bằng phím bổ trợ và một cú click mà không cần kéo chọn văn
 bản. Extension hỗ trợ lịch sử local, phím tắt, loại trừ website, copy link dạng
-Markdown, bảng dạng TSV và các thao tác nhanh cho JSON, SQL, JWT, timestamp,
+Markdown/văn bản/URL, bảng dạng TSV và các thao tác nhanh cho JSON, SQL, JWT, timestamp,
 Base64 và chuyển đổi chữ hoa/thường.
 
 Lịch sử và thống kê chỉ nằm trong Chrome profile hiện tại. Cài đặt có thể được

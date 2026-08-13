@@ -41,9 +41,17 @@ test("mergeSettings applies defaults and clamps duration", function () {
       toastDurationMs: 5000,
       uiLanguage: "auto",
       copyHistoryLimit: 20,
-      keyboardShortcutEnabled: true
+      keyboardShortcutEnabled: true,
+      linkCopyFormat: "markdown"
     }
   );
+});
+
+test("mergeSettings normalizes link copy format non-destructively", function () {
+  assert.equal(utils.mergeSettings({ linkCopyFormat: "text" }).linkCopyFormat, "text");
+  assert.equal(utils.mergeSettings({ linkCopyFormat: "url" }).linkCopyFormat, "url");
+  assert.equal(utils.mergeSettings({ linkCopyFormat: "invalid" }).linkCopyFormat, "markdown");
+  assert.equal(utils.mergeSettings({}).linkCopyFormat, "markdown");
 });
 
 test("isExcludedHost matches exact domains and subdomains", function () {
@@ -137,6 +145,33 @@ test("pushHistoryEntry annotates smart format metadata", function () {
   }, 10);
 
   assert.equal(history[0].format, "json");
+});
+
+test("history metadata is optional and updates with the latest deduplicated copy", function () {
+  const legacyEntry = utils.normalizeHistoryEntry({
+    id: "legacy",
+    text: "https://example.com/docs",
+    createdAt: 1,
+  });
+  assert.equal(Object.hasOwn(legacyEntry, "targetKind"), false);
+  assert.equal(Object.hasOwn(legacyEntry, "copyFormat"), false);
+
+  const withMetadata = utils.pushHistoryEntry([legacyEntry], {
+    text: "https://example.com/docs",
+    createdAt: 2,
+    targetKind: "link",
+    copyFormat: "url",
+  }, 20);
+  assert.equal(withMetadata[0].targetKind, "link");
+  assert.equal(withMetadata[0].copyFormat, "url");
+
+  const latestNativeCopy = utils.pushHistoryEntry(withMetadata, {
+    text: "https://example.com/docs",
+    createdAt: 3,
+    source: "native",
+  }, 20);
+  assert.equal(Object.hasOwn(latestNativeCopy[0], "targetKind"), false);
+  assert.equal(Object.hasOwn(latestNativeCopy[0], "copyFormat"), false);
 });
 
 test("pushHistoryEntry preserves copied text whitespace", function () {
