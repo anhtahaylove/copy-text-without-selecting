@@ -27,6 +27,7 @@
       scopeLevel: 0,
       scopeAnchorClientX: null,
       scopeAnchorClientY: null,
+      scopeBaseTarget: null,
       lastRenderedTarget: null,
     },
     suppressNativeCopyTracking: false,

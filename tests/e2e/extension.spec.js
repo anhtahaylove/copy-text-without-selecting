@@ -202,6 +202,67 @@ async function altClick(target) {
   await target.click({ modifiers: ["Alt"] });
 }
 
+async function getTextRangePoint(page, selector, phrase) {
+  return page.evaluate(function (input) {
+    const element = document.querySelector(input.selector);
+    const textNode = element && Array.from(element.childNodes).find(function (node) {
+      return node.nodeType === Node.TEXT_NODE && String(node.textContent || "").includes(input.phrase);
+    });
+    if (!textNode) {
+      throw new Error("Text node not found for scope fixture.");
+    }
+    const start = textNode.textContent.indexOf(input.phrase);
+    const range = document.createRange();
+    range.setStart(textNode, start);
+    range.setEnd(textNode, start + input.phrase.length);
+    const rect = range.getBoundingClientRect();
+    return {
+      x: rect.left + (rect.width / 2),
+      y: rect.top + (rect.height / 2),
+    };
+  }, { selector, phrase });
+}
+
+async function getLocatorTextRangePoint(locator, phrase) {
+  return locator.evaluate(function (element, targetPhrase) {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    let textNode = walker.nextNode();
+    while (textNode && !String(textNode.textContent || "").includes(targetPhrase)) {
+      textNode = walker.nextNode();
+    }
+    if (!textNode) {
+      throw new Error("Text node not found for shadow scope fixture.");
+    }
+    const start = textNode.textContent.indexOf(targetPhrase);
+    const range = document.createRange();
+    range.setStart(textNode, start);
+    range.setEnd(textNode, start + targetPhrase.length);
+    const rect = range.getBoundingClientRect();
+    return { x: rect.left + (rect.width / 2), y: rect.top + (rect.height / 2) };
+  }, phrase);
+}
+
+async function getTextStartPoint(page, selector, phrase) {
+  return page.evaluate(function (input) {
+    const element = document.querySelector(input.selector);
+    const textNode = element && Array.from(element.childNodes).find(function (node) {
+      return node.nodeType === Node.TEXT_NODE && String(node.textContent || "").includes(input.phrase);
+    });
+    if (!textNode) {
+      throw new Error("Text node not found for scope fixture.");
+    }
+    const start = textNode.textContent.indexOf(input.phrase);
+    const range = document.createRange();
+    range.setStart(textNode, start);
+    range.setEnd(textNode, start + 1);
+    const rect = range.getBoundingClientRect();
+    return {
+      x: rect.left + Math.min(1, rect.width / 4),
+      y: rect.top + (rect.height / 2),
+    };
+  }, { selector, phrase });
+}
+
 test.beforeAll(async function () {
   try {
     await startFixtureServer();
@@ -501,6 +562,234 @@ test("copies a focused icon-only action through the shortcut path", async functi
   await expect.poll(async function () {
     return readClipboard(page);
   }).toBe("bcd");
+  await page.close();
+});
+
+test("keeps expanded scope through tiny pointer movement and supports contraction", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const point = await getTextRangePoint(page, "#inline-scope-text strong", "bold target words");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.move(point.x + 1, point.y);
+  await page.mouse.click(point.x + 1, point.y);
+  await page.keyboard.up("Alt");
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("First bold target words ending here.");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.wheel(0, 100);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up("Alt");
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("bold target words");
+
+  await page.close();
+});
+
+test("selects the following sentence at its first-character boundary", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const point = await getTextStartPoint(page, "#sentence-edge-target", "Second target sentence");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Second target sentence.");
+  await page.close();
+});
+
+test("keeps abbreviations, decimals, and URLs inside their sentences", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const point = await getTextRangePoint(page, "#abbreviation-target", "Smith wrote this sentence");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Dr. Smith wrote this sentence.");
+  await page.close();
+});
+
+test("sentence scope excludes hidden descendants from plain and rich clipboard", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const point = await getTextRangePoint(page, "#hidden-sentence-text strong", "sentence target");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Visible sentence target.");
+  expect(await readClipboardHtml(page)).toBe("Visible sentence target.");
+  await page.close();
+});
+
+test("sentence scope follows the composed tree and excludes unassigned light DOM", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const point = await getTextRangePoint(page, "#shadow-scope-target", "Visible target");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Visible target sentence.");
+  expect(await readClipboardHtml(page)).toBe("Visible target sentence.");
+  await page.close();
+});
+
+test("resets sentence scope when moving to another sentence in the same paragraph", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const firstPoint = await getTextRangePoint(page, "#same-sentence-first", "First scoped sentence");
+  const secondPoint = await getTextRangePoint(page, "#same-sentence-second", "Second scoped sentence");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(firstPoint.x, firstPoint.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.move(secondPoint.x, secondPoint.y);
+  await page.mouse.click(secondPoint.x, secondPoint.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Second scoped sentence.");
+  await page.close();
+});
+
+test("cross-root scope never drops text from the exact target", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const point = await getTextRangePoint(page, "#shadow-partial-scope-target", "Target");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("First sentence. Target continues.");
+  await page.close();
+});
+
+test("expands sentence scope for text created directly inside an open shadow root", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const target = page.locator("#shadow-direct-scope-host").locator("#shadow-direct-scope-target");
+  const point = await getLocatorTextRangePoint(target, "Second direct target");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Second direct target sentence.");
+  await page.close();
+});
+
+test("never shrinks a whole-text exact target when expanding scope", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const point = await getTextRangePoint(page, "#scope-text", "Second target sentence");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("First sentence. Second target sentence. Third sentence.");
+  await page.close();
+});
+
+test("resets expanded scope when the pointer moves to a different base target", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const firstPoint = await getTextRangePoint(page, "#scope-text", "Second target sentence");
+  const secondPoint = await getTextRangePoint(page, "#other-scope-text", "Different target second sentence");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(firstPoint.x, firstPoint.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.move(secondPoint.x, secondPoint.y);
+  await page.mouse.click(secondPoint.x, secondPoint.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Different target first sentence. Different target second sentence.");
+  await page.close();
+});
+
+test("expands scope across inline markup without shrinking paragraph or container", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const inlinePoint = await getTextRangePoint(page, "#inline-scope-text strong", "bold target words");
+  const trailingPoint = await getTextRangePoint(page, "#inline-scope-text", "ending here");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(inlinePoint.x, inlinePoint.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.move(trailingPoint.x, trailingPoint.y);
+  await page.mouse.click(trailingPoint.x, trailingPoint.y);
+  await page.keyboard.up("Alt");
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("First bold target words ending here.");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(inlinePoint.x, inlinePoint.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(inlinePoint.x, inlinePoint.y);
+  await page.keyboard.up("Alt");
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("First bold target words ending here. Next sentence.");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(inlinePoint.x, inlinePoint.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(inlinePoint.x, inlinePoint.y);
+  await page.keyboard.up("Alt");
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("First bold target words ending here. Next sentence. Container sibling.");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(inlinePoint.x, inlinePoint.y);
+  await page.mouse.wheel(0, -100);
+  await page.keyboard.up("Alt");
+  await page.keyboard.down("Alt");
+  await page.mouse.click(inlinePoint.x, inlinePoint.y);
+  await page.keyboard.up("Alt");
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("bold target words");
+
   await page.close();
 });
 

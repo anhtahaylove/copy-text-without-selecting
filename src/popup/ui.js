@@ -86,7 +86,7 @@ function createPopupUi(context) {
     setText("popup_site_label", "Current site");
     setText("popup_modifier_label", "Copy modifier");
     setText("popup_preview_label", "Hover preview");
-    setText("popup_preview_hint", "Show the target overlay while the modifier key is held.");
+    setText("popup_preview_hint", "Hold the copy modifier to preview; scroll to change scope.");
     setText("popup_safe_label", "Skip editable apps");
     setText("popup_safe_hint", "Avoid copying inside contenteditable editors and rich text surfaces.");
     setText("popup_duration_label", "Feedback duration");

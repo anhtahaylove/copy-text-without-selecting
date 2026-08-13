@@ -2,7 +2,7 @@ function createContentTargeting(context, dependencies) {
   const utils = context.utils;
   const hoverState = context.state.hoverState;
 
-  const SCOPE_WORD = 0;
+  const SCOPE_EXACT = 0;
   const SCOPE_SENTENCE = 1;
   const SCOPE_PARAGRAPH = 2;
   const SCOPE_CONTAINER = 3;
@@ -37,52 +37,45 @@ function createContentTargeting(context, dependencies) {
     hoverState.pointerClientY = event.clientY;
   }
 
-  function resolveScopedTarget(sourceNode, clientX, clientY, level) {
-    if (level <= SCOPE_WORD) {
+  function resolveScopedTarget(sourceNode, clientX, clientY, level, baseTarget) {
+    if (level <= SCOPE_EXACT) {
       return null;
     }
 
-    const caretRange = getCaretRangeAtPoint(clientX, clientY);
-    if (!caretRange) {
-      return null;
-    }
-
-    const textNode = caretRange.startContainer;
+    const caretRange = baseTarget ? null : getCaretRangeAtPoint(clientX, clientY, sourceNode);
+    const textNode = baseTarget && baseTarget.kind === "text" ? baseTarget.node : caretRange && caretRange.startContainer;
+    const caretOffset = baseTarget && Number.isFinite(baseTarget.caretOffset) ? baseTarget.caretOffset : caretRange && caretRange.startOffset;
     if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
       return null;
     }
 
     if (level === SCOPE_SENTENCE) {
-      const sentenceRange = expandToSentence(textNode, caretRange.startOffset);
-      if (sentenceRange) {
+      const sentenceTarget = expandToSentence(textNode, caretOffset);
+      if (sentenceTarget) {
         return {
           kind: "scope",
           node: textNode,
-          range: sentenceRange,
-          rect: getRangeBoundingRect(sentenceRange),
-          text: sentenceRange.toString().trim(),
+          range: sentenceTarget.range,
+          rect: sentenceTarget.rect,
+          text: sentenceTarget.text,
+          textNodes: sentenceTarget.textNodes,
+          textSlices: sentenceTarget.textSlices,
+          scopeLevel: SCOPE_SENTENCE,
         };
       }
     }
 
+    const paragraphElement = findScopeParagraphElement(textNode);
     if (level === SCOPE_PARAGRAPH) {
-      let paragraphElement = getElementNode(textNode);
-      while (paragraphElement && paragraphElement !== document.body) {
-        const display = window.getComputedStyle ? window.getComputedStyle(paragraphElement).display : "";
-        if (display === "block" || display === "list-item" || display === "flex" || paragraphElement.nodeName === "P" || paragraphElement.nodeName === "LI") {
-          break;
-        }
-        paragraphElement = paragraphElement.parentElement;
-      }
       if (paragraphElement && paragraphElement !== document.body) {
-        return createElementTarget(paragraphElement);
+        return createScopeElementTarget(paragraphElement, SCOPE_PARAGRAPH);
       }
     }
 
     if (level === SCOPE_CONTAINER) {
-      const container = getElementNode(textNode);
-      if (container && container.parentElement && container.parentElement !== document.body && container.parentElement !== document.documentElement) {
-        return createElementTarget(container.parentElement);
+      const container = paragraphElement && extraction().getComposedParentElement(paragraphElement);
+      if (container && container !== document.body && container !== document.documentElement) {
+        return createScopeElementTarget(container, SCOPE_CONTAINER);
       }
     }
 
@@ -90,39 +83,244 @@ function createContentTargeting(context, dependencies) {
   }
 
   function expandToSentence(textNode, offset) {
-    const text = textNode.textContent || "";
+    const paragraphElement = findScopeParagraphElement(textNode) || getElementNode(textNode);
+    const textNodes = getVisibleTextNodes(paragraphElement);
+    const targetNodeIndex = textNodes.indexOf(textNode);
+    if (targetNodeIndex < 0) {
+      return null;
+    }
+
+    const text = textNodes.map(function (node) { return node.textContent || ""; }).join("");
     if (!text.trim()) {
       return null;
     }
 
-    const sentenceBreaks = /[.!?\u3002\uff01\uff1f]+[\s]*/g;
-    const sentences = [];
-    let lastEnd = 0;
-    let match;
-    while ((match = sentenceBreaks.exec(text)) !== null) {
-      sentences.push({ start: lastEnd, end: match.index + match[0].length });
-      lastEnd = match.index + match[0].length;
-    }
-    if (lastEnd < text.length) {
-      sentences.push({ start: lastEnd, end: text.length });
-    }
+    const localOffset = Number.isFinite(offset) ? offset : 0;
+    const absoluteOffset = textNodes.slice(0, targetNodeIndex).reduce(function (total, node) {
+      return total + String(node.textContent || "").length;
+    }, 0) + Math.min(Math.max(0, localOffset), String(textNode.textContent || "").length);
 
-    if (sentences.length === 0) {
-      sentences.push({ start: 0, end: text.length });
-    }
+    const sentences = getSentenceSegments(text);
 
     let target = sentences[0];
     for (let index = 0; index < sentences.length; index += 1) {
-      if (offset >= sentences[index].start && offset <= sentences[index].end) {
+      const sentence = sentences[index];
+      const includesOffset = absoluteOffset >= sentence.start
+        && (absoluteOffset < sentence.end || (index === sentences.length - 1 && absoluteOffset === sentence.end));
+      if (includesOffset) {
         target = sentences[index];
         break;
       }
     }
 
+    const startBoundary = getTextBoundary(textNodes, target.start, false);
+    const endBoundary = getTextBoundary(textNodes, Math.min(target.end, text.length), true);
+    if (!startBoundary || !endBoundary) {
+      return null;
+    }
+
+    const sentenceTextNodes = getTextNodesInSlice(textNodes, target.start, target.end);
+    const sentenceTextSlices = getTextSlicesInRange(textNodes, target.start, target.end);
+    const range = createRangeAcrossBoundaries(startBoundary, endBoundary);
+    return {
+      range: range,
+      rect: getVisibleSentenceRect(textNodes, target.start, target.end),
+      text: text.slice(target.start, target.end).trim(),
+      textNodes: sentenceTextNodes,
+      textSlices: sentenceTextSlices,
+    };
+  }
+
+  function getTextNodesInSlice(textNodes, start, end) {
+    let consumed = 0;
+    return textNodes.filter(function (node) {
+      const length = String(node.textContent || "").length;
+      const overlaps = end > consumed && start < consumed + length;
+      consumed += length;
+      return overlaps;
+    });
+  }
+
+  function getTextSlicesInRange(textNodes, start, end) {
+    let consumed = 0;
+    const slices = [];
+    textNodes.forEach(function (node) {
+      const length = String(node.textContent || "").length;
+      const startOffset = Math.max(0, start - consumed);
+      const endOffset = Math.min(length, end - consumed);
+      consumed += length;
+      if (endOffset > startOffset) {
+        slices.push({ node: node, startOffset: startOffset, endOffset: endOffset });
+      }
+    });
+    return slices;
+  }
+
+  function createRangeAcrossBoundaries(startBoundary, endBoundary) {
+    if (!startBoundary || !endBoundary || startBoundary.node.getRootNode() !== endBoundary.node.getRootNode()) {
+      return null;
+    }
     const range = document.createRange();
-    range.setStart(textNode, target.start);
-    range.setEnd(textNode, Math.min(target.end, text.length));
-    return range;
+    try {
+      range.setStart(startBoundary.node, startBoundary.offset);
+      range.setEnd(endBoundary.node, endBoundary.offset);
+      return range;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function getVisibleSentenceRect(textNodes, start, end) {
+    let consumed = 0;
+    let rect = null;
+    textNodes.forEach(function (node) {
+      const length = String(node.textContent || "").length;
+      const nodeStart = Math.max(0, start - consumed);
+      const nodeEnd = Math.min(length, end - consumed);
+      consumed += length;
+      if (nodeEnd <= nodeStart) {
+        return;
+      }
+      const sliceRange = document.createRange();
+      sliceRange.setStart(node, nodeStart);
+      sliceRange.setEnd(node, nodeEnd);
+      rect = unionRects(rect, getRangeBoundingRect(sliceRange));
+    });
+    return rect;
+  }
+
+  function unionRects(left, right) {
+    if (!left) return right;
+    if (!right) return left;
+    const result = {
+      left: Math.min(left.left, right.left),
+      top: Math.min(left.top, right.top),
+      right: Math.max(left.right, right.right),
+      bottom: Math.max(left.bottom, right.bottom),
+    };
+    result.width = result.right - result.left;
+    result.height = result.bottom - result.top;
+    return result;
+  }
+
+  function getSentenceSegments(text, forceFallback) {
+    let sentences = [];
+    if (!forceFallback && typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+      const segmenter = new Intl.Segmenter(undefined, { granularity: "sentence" });
+      sentences = Array.from(segmenter.segment(text)).map(function (segment) {
+        return { start: segment.index, end: segment.index + segment.segment.length };
+      });
+    } else {
+      const sentenceBreaks = /[.!?\u3002\uff01\uff1f]+["'\u201d\u2019)\]]*(?:\s+|$)/g;
+      let lastEnd = 0;
+      let match;
+      while ((match = sentenceBreaks.exec(text)) !== null) {
+        sentences.push({ start: lastEnd, end: match.index + match[0].length });
+        lastEnd = match.index + match[0].length;
+      }
+      if (lastEnd < text.length) {
+        sentences.push({ start: lastEnd, end: text.length });
+      }
+    }
+
+    if (!sentences.length) {
+      sentences.push({ start: 0, end: text.length });
+    }
+
+    return mergeAbbreviationSegments(text, sentences);
+  }
+
+  function mergeAbbreviationSegments(text, sentences) {
+    return sentences.reduce(function (merged, sentence) {
+      const previous = merged[merged.length - 1];
+      if (previous && endsWithNonTerminalAbbreviation(text.slice(previous.start, previous.end))) {
+        previous.end = sentence.end;
+        return merged;
+      }
+      merged.push({ start: sentence.start, end: sentence.end });
+      return merged;
+    }, []);
+  }
+
+  function endsWithNonTerminalAbbreviation(value) {
+    const trimmed = String(value || "").trim();
+    return /(?:\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|Mt|No)\.|\b(?:e\.g|i\.e)\.|(?:\b[A-Z]\.){2,})$/i.test(trimmed);
+  }
+
+  function findScopeParagraphElement(node) {
+    let element = getElementNode(node);
+    while (element && element !== document.body && element !== document.documentElement) {
+      const display = window.getComputedStyle ? window.getComputedStyle(element).display : "";
+      if (element.nodeName === "P" || element.nodeName === "LI" || display === "block" || display === "list-item" || display === "flex" || display === "grid") {
+        return element;
+      }
+      element = extraction().getComposedParentElement(element);
+    }
+    return null;
+  }
+
+  function getVisibleTextNodes(root) {
+    if (!root) {
+      return [];
+    }
+    const nodes = [];
+    collectComposedTextNodes(root, nodes);
+    return nodes;
+  }
+
+  function collectComposedTextNodes(node, nodes) {
+    if (!node) {
+      return;
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (isNodeVisible(node) && String(node.textContent || "").length) {
+        nodes.push(node);
+      }
+      return;
+    }
+    if (node.nodeType === Node.ELEMENT_NODE && !isNodeVisible(node)) {
+      return;
+    }
+
+    let children;
+    if (node.nodeType === Node.ELEMENT_NODE && node.nodeName.toUpperCase() === "SLOT" && typeof node.assignedNodes === "function") {
+      const assignedNodes = node.assignedNodes({ flatten: true });
+      children = assignedNodes.length ? assignedNodes : Array.from(node.childNodes || []);
+    } else if (node.nodeType === Node.ELEMENT_NODE && node.shadowRoot) {
+      children = Array.from(node.shadowRoot.childNodes || []);
+    } else {
+      children = Array.from(node.childNodes || []);
+    }
+    children.forEach(function (child) {
+      collectComposedTextNodes(child, nodes);
+    });
+  }
+
+  function getTextBoundary(textNodes, absoluteOffset, isEnd) {
+    let consumed = 0;
+    for (let index = 0; index < textNodes.length; index += 1) {
+      const node = textNodes[index];
+      const length = String(node.textContent || "").length;
+      const next = consumed + length;
+      if (absoluteOffset < next || (isEnd && absoluteOffset <= next) || index === textNodes.length - 1) {
+        return { node: node, offset: Math.min(length, Math.max(0, absoluteOffset - consumed)) };
+      }
+      consumed = next;
+    }
+    return null;
+  }
+
+  function createScopeElementTarget(element, level) {
+    const textNodes = getVisibleTextNodes(element);
+    return {
+      kind: "scope",
+      node: element,
+      rect: element.getBoundingClientRect ? element.getBoundingClientRect() : null,
+      text: extraction().collectVisibleText(element).trim(),
+      textNodes: textNodes,
+      textSlices: textNodes.map(createWholeTextSlice),
+      scopeLevel: level,
+    };
   }
 
   function resolvePrecisionTarget(sourceNode, options) {
@@ -142,10 +340,11 @@ function createContentTargeting(context, dependencies) {
       }
     }
 
+    const requestedScopeLevel = Number.isFinite(localContext.scopeLevel) ? localContext.scopeLevel : hoverState.scopeLevel;
     const scopeClientX = hoverState.scopeAnchorClientX !== null ? hoverState.scopeAnchorClientX : clientX;
     const scopeClientY = hoverState.scopeAnchorClientY !== null ? hoverState.scopeAnchorClientY : clientY;
-    if (hoverState.scopeLevel > SCOPE_WORD) {
-      const scopedTarget = resolveScopedTarget(sourceElement, scopeClientX, scopeClientY, hoverState.scopeLevel);
+    if (requestedScopeLevel > SCOPE_EXACT) {
+      const scopedTarget = resolveScopedTarget(sourceElement, scopeClientX, scopeClientY, requestedScopeLevel, hoverState.scopeBaseTarget);
       if (scopedTarget) {
         return scopedTarget;
       }
@@ -153,7 +352,7 @@ function createContentTargeting(context, dependencies) {
 
     const fallbackElement = getDeepElementTarget(sourceElement, clientX, clientY);
     const semanticElement = extraction().getClosestSemanticElement(fallbackElement);
-    const deepTextTarget = semanticElement ? null : getDeepTextTarget(clientX, clientY);
+    const deepTextTarget = semanticElement ? null : getDeepTextTarget(clientX, clientY, fallbackElement);
     const preliminaryTarget = deepTextTarget || createElementTarget(semanticElement || fallbackElement);
     if (!preliminaryTarget) {
       return null;
@@ -201,7 +400,12 @@ function createContentTargeting(context, dependencies) {
         } else if (extractionContext.node && extractionContext.node.getBoundingClientRect) {
           rect = extractionContext.node.getBoundingClientRect();
         }
-        return { kind: "text", node: extractionContext.node, rect: rect || preliminaryTarget.rect };
+        return {
+          kind: "text",
+          node: extractionContext.node,
+          caretOffset: extractionContext.node === preliminaryTarget.node ? preliminaryTarget.caretOffset : undefined,
+          rect: rect || preliminaryTarget.rect,
+        };
       }
       default:
         return preliminaryTarget;
@@ -248,12 +452,12 @@ function createContentTargeting(context, dependencies) {
     return null;
   }
 
-  function getDeepTextTarget(clientX, clientY) {
+  function getDeepTextTarget(clientX, clientY, sourceNode) {
     if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
       return null;
     }
 
-    const range = getCaretRangeAtPoint(clientX, clientY);
+    const range = getCaretRangeAtPoint(clientX, clientY, sourceNode);
     if (!range) {
       return null;
     }
@@ -265,6 +469,7 @@ function createContentTargeting(context, dependencies) {
       return {
         kind: "text",
         node: node,
+        caretOffset: range.startOffset,
         rect: getRangeBoundingRect(textRange),
       };
     }
@@ -279,9 +484,19 @@ function createContentTargeting(context, dependencies) {
     return getClosestMeaningfulElement(element || sourceElement);
   }
 
-  function getCaretRangeAtPoint(clientX, clientY) {
+  function getCaretRangeAtPoint(clientX, clientY, sourceNode) {
     if (document.caretPositionFromPoint) {
-      const position = document.caretPositionFromPoint(clientX, clientY);
+      const shadowRoots = getOpenShadowRootChain(sourceNode);
+      let position;
+      try {
+        position = document.caretPositionFromPoint(
+          clientX,
+          clientY,
+          shadowRoots.length ? { shadowRoots: shadowRoots } : undefined
+        );
+      } catch (error) {
+        position = document.caretPositionFromPoint(clientX, clientY);
+      }
       if (position && position.offsetNode) {
         if (position.offsetNode.nodeType !== Node.TEXT_NODE && position.offset > position.offsetNode.childNodes.length) {
           return null;
@@ -303,6 +518,20 @@ function createContentTargeting(context, dependencies) {
     }
 
     return null;
+  }
+
+  function getOpenShadowRootChain(node) {
+    const roots = [];
+    let current = getElementNode(node);
+    while (current && typeof current.getRootNode === "function") {
+      const root = current.getRootNode();
+      if (!root || !root.host) {
+        break;
+      }
+      roots.push(root);
+      current = root.host;
+    }
+    return roots;
   }
 
   function getClosestMeaningfulElement(element) {
@@ -454,6 +683,128 @@ function createContentTargeting(context, dependencies) {
     return false;
   }
 
+  function getPrecisionTargetIdentity(target) {
+    if (!target) {
+      return null;
+    }
+    return target.node || target.element || target.anchor || target.table || target.container || null;
+  }
+
+  function isSamePrecisionTarget(left, right) {
+    if (!left || !right || left.kind !== right.kind) {
+      return false;
+    }
+    if (left.kind === "text" && left.node && right.node && left.node.nodeType === Node.TEXT_NODE && right.node.nodeType === Node.TEXT_NODE) {
+      const leftSentence = expandToSentence(left.node, left.caretOffset);
+      const rightSentence = expandToSentence(right.node, right.caretOffset);
+      if (leftSentence && rightSentence) {
+        return areTextSlicesEqual(leftSentence.textSlices, rightSentence.textSlices);
+      }
+    }
+    return getPrecisionTargetIdentity(left) === getPrecisionTargetIdentity(right);
+  }
+
+  function doesTargetContain(containerTarget, innerTarget) {
+    if (Array.isArray(containerTarget && containerTarget.textSlices) || Array.isArray(innerTarget && innerTarget.textSlices)) {
+      return doTextSlicesContain(getTargetTextSlices(containerTarget), getTargetTextSlices(innerTarget));
+    }
+
+    const containerRange = getTargetRange(containerTarget);
+    const innerRange = getTargetRange(innerTarget);
+    if (containerRange && innerRange && rangesShareRoot(containerRange, innerRange)) {
+      try {
+        return containerRange.compareBoundaryPoints(Range.START_TO_START, innerRange) <= 0
+          && containerRange.compareBoundaryPoints(Range.END_TO_END, innerRange) >= 0;
+      } catch (error) {
+        // Fall back to composed text-node containment below.
+      }
+    }
+
+    return doTextSlicesContain(getTargetTextSlices(containerTarget), getTargetTextSlices(innerTarget));
+  }
+
+  function doTextSlicesContain(containerTextSlices, innerTextSlices) {
+    return innerTextSlices.length > 0 && innerTextSlices.every(function (innerSlice) {
+      return containerTextSlices.some(function (containerSlice) {
+        return containerSlice.node === innerSlice.node
+          && containerSlice.startOffset <= innerSlice.startOffset
+          && containerSlice.endOffset >= innerSlice.endOffset;
+      });
+    });
+  }
+
+  function rangesShareRoot(left, right) {
+    return left.startContainer.getRootNode() === left.endContainer.getRootNode()
+      && left.startContainer.getRootNode() === right.startContainer.getRootNode()
+      && right.startContainer.getRootNode() === right.endContainer.getRootNode();
+  }
+
+  function getTargetTextSlices(target) {
+    if (!target) {
+      return [];
+    }
+    if (Array.isArray(target.textSlices)) {
+      return target.textSlices;
+    }
+    if (Array.isArray(target.textNodes)) {
+      return target.textNodes.map(createWholeTextSlice);
+    }
+    const node = target.node || target.element || target.anchor || target.table || target.container;
+    if (!node) {
+      return [];
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      return [createWholeTextSlice(node)];
+    }
+    return getVisibleTextNodes(node).map(createWholeTextSlice);
+  }
+
+  function createWholeTextSlice(node) {
+    return { node: node, startOffset: 0, endOffset: String(node && node.textContent || "").length };
+  }
+
+  function areTextSlicesEqual(left, right) {
+    return Array.isArray(left)
+      && Array.isArray(right)
+      && left.length === right.length
+      && left.every(function (slice, index) {
+        const other = right[index];
+        return other
+          && slice.node === other.node
+          && slice.startOffset === other.startOffset
+          && slice.endOffset === other.endOffset;
+      });
+  }
+
+  function getTargetRange(target) {
+    if (!target) {
+      return null;
+    }
+    if (target.range && typeof target.range.cloneRange === "function") {
+      return target.range.cloneRange();
+    }
+
+    const node = target.node || target.element || target.anchor || target.table || target.container;
+    if (!node) {
+      return null;
+    }
+
+    const range = document.createRange();
+    try {
+      range.selectNodeContents(node);
+      return range;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function resetScopeState() {
+    hoverState.scopeLevel = SCOPE_EXACT;
+    hoverState.scopeAnchorClientX = null;
+    hoverState.scopeAnchorClientY = null;
+    hoverState.scopeBaseTarget = null;
+  }
+
   function resolveShortcutTarget() {
     const selection = window.getSelection ? window.getSelection() : null;
     if (selection && selection.rangeCount && !selection.isCollapsed && String(selection.toString() || "").trim()) {
@@ -515,7 +866,7 @@ function createContentTargeting(context, dependencies) {
   }
 
   return {
-    SCOPE_WORD,
+    SCOPE_EXACT,
     SCOPE_SENTENCE,
     SCOPE_PARAGRAPH,
     SCOPE_CONTAINER,
@@ -523,11 +874,20 @@ function createContentTargeting(context, dependencies) {
     syncPointerState,
     resolveScopedTarget,
     expandToSentence,
+    getVisibleSentenceRect,
+    unionRects,
+    getSentenceSegments,
+    findScopeParagraphElement,
+    getVisibleTextNodes,
+    collectComposedTextNodes,
+    getTextBoundary,
+    createScopeElementTarget,
     resolvePrecisionTarget,
     getSelectionTarget,
     getDeepTextTarget,
     getDeepElementTarget,
     getCaretRangeAtPoint,
+    getOpenShadowRootChain,
     getClosestMeaningfulElement,
     createElementTarget,
     hasMeaningfulText,
@@ -535,6 +895,11 @@ function createContentTargeting(context, dependencies) {
     getRangeBoundingRect,
     isPointInsideRect,
     shouldIgnoreElement,
+    getPrecisionTargetIdentity,
+    isSamePrecisionTarget,
+    doesTargetContain,
+    doTextSlicesContain,
+    resetScopeState,
     resolveShortcutTarget,
     getDeepActiveElement,
     getNativeCopiedText,

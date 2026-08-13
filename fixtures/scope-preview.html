@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copy Extension Fixture - Scope Preview</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 48px auto;
+            max-width: 760px;
+            padding: 0 24px 80px;
+            line-height: 1.8;
+        }
+        section {
+            margin-bottom: 32px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Scope preview scenarios</h1>
+    <section id="first-scope-container">
+        <p id="scope-text">First sentence. Second target sentence. Third sentence.</p>
+    </section>
+    <section id="second-scope-container">
+        <p id="other-scope-text">Different target first sentence. Different target second sentence.</p>
+    </section>
+    <section id="inline-scope-container">
+        <p id="inline-scope-text">First <strong>bold target words</strong> ending here. Next sentence.</p>
+        <p>Container sibling.</p>
+    </section>
+    <section id="sentence-edge-container">
+        <p id="sentence-edge-text">First sentence. <span id="sentence-edge-target">Second target sentence.</span> Third sentence.</p>
+        <p id="abbreviation-text">Dr. <span id="abbreviation-target">Smith wrote this sentence</span>. Version 2.5 remains stable. Visit example.com/docs.</p>
+        <p id="hidden-sentence-text">Visible <span style="display: none">SECRET</span><strong>sentence target</strong>. Next sentence.</p>
+    </section>
+    <div id="shadow-scope-host">
+        <span id="shadow-scope-target" slot="visible">Visible target</span>
+        <span> SECRET.</span>
+    </div>
+    <p id="same-paragraph-scope"><span id="same-sentence-first">First scoped sentence.</span> <span id="same-sentence-second">Second scoped sentence.</span></p>
+    <div id="shadow-partial-scope-host">
+        <span id="shadow-partial-scope-target" slot="visible">First sentence. Target</span>
+    </div>
+    <div id="shadow-direct-scope-host"></div>
+    <script>
+        document.getElementById("shadow-scope-host").attachShadow({ mode: "open" }).innerHTML = `
+            <section><p><slot name="visible"></slot> sentence.</p><p>Rendered sibling.</p></section>
+        `;
+        document.getElementById("shadow-partial-scope-host").attachShadow({ mode: "open" }).innerHTML = `
+            <p><slot name="visible"></slot> continues.</p>
+        `;
+        document.getElementById("shadow-direct-scope-host").attachShadow({ mode: "open" }).innerHTML = `
+            <p>First sentence. <span id="shadow-direct-scope-target">Second direct target</span> sentence.</p>
+        `;
+    </script>
+</body>
+</html>

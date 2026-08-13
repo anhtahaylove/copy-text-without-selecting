@@ -18,7 +18,7 @@
     "message": "Hover preview"
   },
   "preview_enabled_help": {
-    "message": "Show the dashed outline overlay while holding the copy modifier."
+    "message": "Hold the copy modifier to preview. Scroll while the outline is visible to expand or contract the target."
   },
   "avoid_editable_label": {
     "message": "Skip editable apps"
@@ -63,7 +63,7 @@
     "message": "Hover preview"
   },
   "popup_preview_hint": {
-    "message": "Show the target overlay while the modifier key is held."
+    "message": "Hold the copy modifier to preview; scroll to change scope."
   },
   "popup_safe_label": {
     "message": "Skip editable apps"

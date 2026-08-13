@@ -49,7 +49,7 @@ function createOptionsUi(context) {
     setText("meta_key_label", "Copy operation");
     setText("meta_key_help", "Hold your copy modifier and click to copy page content quickly.");
     setText("preview_enabled_label", "Hover preview");
-    setText("preview_enabled_help", "Show the dashed outline overlay while holding the copy modifier.");
+    setText("preview_enabled_help", "Hold the copy modifier to preview. Scroll while the outline is visible to expand or contract the target.");
     setText("avoid_editable_label", "Skip editable apps");
     setText("avoid_editable_help", "Avoid contenteditable editors and rich text surfaces where copy gestures might be disruptive.");
     setText("keyboard_shortcut_enabled_label", "Keyboard shortcut mode");
