@@ -42,12 +42,16 @@
     <div id="shadow-partial-scope-host">
         <span id="shadow-partial-scope-target" slot="visible">First sentence. Target</span>
     </div>
+    <div id="shadow-direct-scope-host"></div>
     <script>
         document.getElementById("shadow-scope-host").attachShadow({ mode: "open" }).innerHTML = `
             <section><p><slot name="visible"></slot> sentence.</p><p>Rendered sibling.</p></section>
         `;
         document.getElementById("shadow-partial-scope-host").attachShadow({ mode: "open" }).innerHTML = `
             <p><slot name="visible"></slot> continues.</p>
+        `;
+        document.getElementById("shadow-direct-scope-host").attachShadow({ mode: "open" }).innerHTML = `
+            <p>First sentence. <span id="shadow-direct-scope-target">Second direct target</span> sentence.</p>
         `;
     </script>
 </body>

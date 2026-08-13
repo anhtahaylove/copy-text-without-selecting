@@ -42,7 +42,7 @@ function createContentTargeting(context, dependencies) {
       return null;
     }
 
-    const caretRange = baseTarget ? null : getCaretRangeAtPoint(clientX, clientY);
+    const caretRange = baseTarget ? null : getCaretRangeAtPoint(clientX, clientY, sourceNode);
     const textNode = baseTarget && baseTarget.kind === "text" ? baseTarget.node : caretRange && caretRange.startContainer;
     const caretOffset = baseTarget && Number.isFinite(baseTarget.caretOffset) ? baseTarget.caretOffset : caretRange && caretRange.startOffset;
     if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
@@ -352,7 +352,7 @@ function createContentTargeting(context, dependencies) {
 
     const fallbackElement = getDeepElementTarget(sourceElement, clientX, clientY);
     const semanticElement = extraction().getClosestSemanticElement(fallbackElement);
-    const deepTextTarget = semanticElement ? null : getDeepTextTarget(clientX, clientY);
+    const deepTextTarget = semanticElement ? null : getDeepTextTarget(clientX, clientY, fallbackElement);
     const preliminaryTarget = deepTextTarget || createElementTarget(semanticElement || fallbackElement);
     if (!preliminaryTarget) {
       return null;
@@ -400,7 +400,12 @@ function createContentTargeting(context, dependencies) {
         } else if (extractionContext.node && extractionContext.node.getBoundingClientRect) {
           rect = extractionContext.node.getBoundingClientRect();
         }
-        return { kind: "text", node: extractionContext.node, rect: rect || preliminaryTarget.rect };
+        return {
+          kind: "text",
+          node: extractionContext.node,
+          caretOffset: extractionContext.node === preliminaryTarget.node ? preliminaryTarget.caretOffset : undefined,
+          rect: rect || preliminaryTarget.rect,
+        };
       }
       default:
         return preliminaryTarget;
@@ -447,12 +452,12 @@ function createContentTargeting(context, dependencies) {
     return null;
   }
 
-  function getDeepTextTarget(clientX, clientY) {
+  function getDeepTextTarget(clientX, clientY, sourceNode) {
     if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
       return null;
     }
 
-    const range = getCaretRangeAtPoint(clientX, clientY);
+    const range = getCaretRangeAtPoint(clientX, clientY, sourceNode);
     if (!range) {
       return null;
     }
@@ -479,9 +484,19 @@ function createContentTargeting(context, dependencies) {
     return getClosestMeaningfulElement(element || sourceElement);
   }
 
-  function getCaretRangeAtPoint(clientX, clientY) {
+  function getCaretRangeAtPoint(clientX, clientY, sourceNode) {
     if (document.caretPositionFromPoint) {
-      const position = document.caretPositionFromPoint(clientX, clientY);
+      const shadowRoots = getOpenShadowRootChain(sourceNode);
+      let position;
+      try {
+        position = document.caretPositionFromPoint(
+          clientX,
+          clientY,
+          shadowRoots.length ? { shadowRoots: shadowRoots } : undefined
+        );
+      } catch (error) {
+        position = document.caretPositionFromPoint(clientX, clientY);
+      }
       if (position && position.offsetNode) {
         if (position.offsetNode.nodeType !== Node.TEXT_NODE && position.offset > position.offsetNode.childNodes.length) {
           return null;
@@ -503,6 +518,20 @@ function createContentTargeting(context, dependencies) {
     }
 
     return null;
+  }
+
+  function getOpenShadowRootChain(node) {
+    const roots = [];
+    let current = getElementNode(node);
+    while (current && typeof current.getRootNode === "function") {
+      const root = current.getRootNode();
+      if (!root || !root.host) {
+        break;
+      }
+      roots.push(root);
+      current = root.host;
+    }
+    return roots;
   }
 
   function getClosestMeaningfulElement(element) {
@@ -676,6 +705,10 @@ function createContentTargeting(context, dependencies) {
   }
 
   function doesTargetContain(containerTarget, innerTarget) {
+    if (Array.isArray(containerTarget && containerTarget.textSlices) || Array.isArray(innerTarget && innerTarget.textSlices)) {
+      return doTextSlicesContain(getTargetTextSlices(containerTarget), getTargetTextSlices(innerTarget));
+    }
+
     const containerRange = getTargetRange(containerTarget);
     const innerRange = getTargetRange(innerTarget);
     if (containerRange && innerRange && rangesShareRoot(containerRange, innerRange)) {
@@ -687,8 +720,10 @@ function createContentTargeting(context, dependencies) {
       }
     }
 
-    const containerTextSlices = getTargetTextSlices(containerTarget);
-    const innerTextSlices = getTargetTextSlices(innerTarget);
+    return doTextSlicesContain(getTargetTextSlices(containerTarget), getTargetTextSlices(innerTarget));
+  }
+
+  function doTextSlicesContain(containerTextSlices, innerTextSlices) {
     return innerTextSlices.length > 0 && innerTextSlices.every(function (innerSlice) {
       return containerTextSlices.some(function (containerSlice) {
         return containerSlice.node === innerSlice.node
@@ -852,6 +887,7 @@ function createContentTargeting(context, dependencies) {
     getDeepTextTarget,
     getDeepElementTarget,
     getCaretRangeAtPoint,
+    getOpenShadowRootChain,
     getClosestMeaningfulElement,
     createElementTarget,
     hasMeaningfulText,
@@ -862,6 +898,7 @@ function createContentTargeting(context, dependencies) {
     getPrecisionTargetIdentity,
     isSamePrecisionTarget,
     doesTargetContain,
+    doTextSlicesContain,
     resetScopeState,
     resolveShortcutTarget,
     getDeepActiveElement,

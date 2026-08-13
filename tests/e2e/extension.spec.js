@@ -223,6 +223,25 @@ async function getTextRangePoint(page, selector, phrase) {
   }, { selector, phrase });
 }
 
+async function getLocatorTextRangePoint(locator, phrase) {
+  return locator.evaluate(function (element, targetPhrase) {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    let textNode = walker.nextNode();
+    while (textNode && !String(textNode.textContent || "").includes(targetPhrase)) {
+      textNode = walker.nextNode();
+    }
+    if (!textNode) {
+      throw new Error("Text node not found for shadow scope fixture.");
+    }
+    const start = textNode.textContent.indexOf(targetPhrase);
+    const range = document.createRange();
+    range.setStart(textNode, start);
+    range.setEnd(textNode, start + targetPhrase.length);
+    const rect = range.getBoundingClientRect();
+    return { x: rect.left + (rect.width / 2), y: rect.top + (rect.height / 2) };
+  }, phrase);
+}
+
 async function getTextStartPoint(page, selector, phrase) {
   return page.evaluate(function (input) {
     const element = document.querySelector(input.selector);
@@ -670,6 +689,23 @@ test("cross-root scope never drops text from the exact target", async function (
   await expect.poll(async function () {
     return readClipboard(page);
   }).toBe("First sentence. Target continues.");
+  await page.close();
+});
+
+test("expands sentence scope for text created directly inside an open shadow root", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const target = page.locator("#shadow-direct-scope-host").locator("#shadow-direct-scope-target");
+  const point = await getLocatorTextRangePoint(target, "Second direct target");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Second direct target sentence.");
   await page.close();
 });
 

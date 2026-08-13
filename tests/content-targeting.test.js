@@ -37,3 +37,28 @@ test("fallback sentence segmentation handles closing punctuation", function () {
     "Last sentence?",
   ]);
 });
+
+test("cross-root containment compares explicit text slice offsets before synthetic ranges", function () {
+  const targeting = createTargeting();
+  const lightNode = { textContent: "First sentence. Target" };
+  const shadowNode = { textContent: " continues." };
+  const partialSentence = {
+    textSlices: [
+      { node: lightNode, startOffset: 16, endOffset: 22 },
+      { node: shadowNode, startOffset: 0, endOffset: 11 },
+    ],
+  };
+  const exactTarget = {
+    textSlices: [{ node: lightNode, startOffset: 0, endOffset: 22 }],
+  };
+  const fullParagraph = {
+    textSlices: [
+      { node: lightNode, startOffset: 0, endOffset: 22 },
+      { node: shadowNode, startOffset: 0, endOffset: 11 },
+    ],
+  };
+
+  assert.equal(targeting.doesTargetContain(partialSentence, exactTarget), false);
+  assert.equal(targeting.doesTargetContain(fullParagraph, exactTarget), true);
+  assert.equal(targeting.doesTargetContain(fullParagraph, partialSentence), true);
+});
