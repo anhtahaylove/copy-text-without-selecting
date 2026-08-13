@@ -43,7 +43,13 @@ test("getReleaseEntries includes shipped files and excludes repo-only files", fu
   const expectedOutputPaths = releaseUtils.getExpectedChromeOutputPaths();
 
   assert.ok(relativePaths.includes("manifest.json"));
+  assert.ok(relativePaths.includes("INSTALL.md"));
+  assert.ok(relativePaths.includes("PRIVACY.md"));
   assert.ok(relativePaths.includes("popup.css"));
+  assert.ok(relativePaths.includes("icons/icon-16.png"));
+  assert.ok(relativePaths.includes("icons/icon-32.png"));
+  assert.ok(relativePaths.includes("icons/icon-48.png"));
+  assert.ok(relativePaths.includes("icons/icon-128.png"));
   assert.ok(expectedOutputPaths.includes("background.js"));
   assert.ok(expectedOutputPaths.includes("shared.js"));
   assert.ok(relativePaths.some(function (entry) {
@@ -58,6 +64,20 @@ test("getReleaseEntries includes shipped files and excludes repo-only files", fu
 test("Chrome release does not request native messaging", function () {
   const manifest = releaseUtils.readJson(path.join(__dirname, "..", "manifest.json"));
   assert.ok(!manifest.permissions.includes("nativeMessaging"));
+});
+
+test("Chrome manifest defines complete extension and toolbar icon sets", function () {
+  const manifest = releaseUtils.readJson(path.join(__dirname, "..", "manifest.json"));
+  assert.deepEqual(Object.keys(manifest.icons).sort(), ["128", "16", "32", "48"]);
+  assert.deepEqual(Object.keys(manifest.action.default_icon).sort(), ["16", "32", "48"]);
+
+  for (const size of [16, 32, 48, 128]) {
+    const iconPath = path.join(__dirname, "..", manifest.icons[String(size)]);
+    const png = fs.readFileSync(iconPath);
+    assert.deepEqual(Array.from(png.subarray(0, 8)), [137, 80, 78, 71, 13, 10, 26, 10]);
+    assert.equal(png.readUInt32BE(16), size);
+    assert.equal(png.readUInt32BE(20), size);
+  }
 });
 
 test("createDeterministicZipFromDirectory produces stable bytes", function () {
