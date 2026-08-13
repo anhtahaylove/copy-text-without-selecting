@@ -207,34 +207,48 @@ function createContentEvents(context) {
       return;
     }
 
-    const delta = event.deltaY < 0 ? 1 : -1;
-    const nextLevel = Math.max(helpers.SCOPE_EXACT, Math.min(helpers.SCOPE_CONTAINER, hoverState.scopeLevel + delta));
-    if (nextLevel === hoverState.scopeLevel) {
+    const direction = event.deltaY < 0 ? 1 : -1;
+    if (hoverState.scopeLevel + direction < helpers.SCOPE_EXACT || hoverState.scopeLevel + direction > helpers.SCOPE_CONTAINER) {
+      return;
+    }
+    const anchorClientX = hoverState.scopeAnchorClientX !== null ? hoverState.scopeAnchorClientX : hoverState.pointerClientX;
+    const anchorClientY = hoverState.scopeAnchorClientY !== null ? hoverState.scopeAnchorClientY : hoverState.pointerClientY;
+    const baseTarget = hoverState.scopeBaseTarget || helpers.resolvePrecisionTarget(hoverState.hoveredElement, {
+      clientX: hoverState.pointerClientX,
+      clientY: hoverState.pointerClientY,
+      preferSelection: true,
+      scopeLevel: helpers.SCOPE_EXACT,
+    });
+    if (!baseTarget) {
       return;
     }
 
-    if (nextLevel > helpers.SCOPE_EXACT) {
-      const anchorClientX = hoverState.scopeAnchorClientX !== null ? hoverState.scopeAnchorClientX : hoverState.pointerClientX;
-      const anchorClientY = hoverState.scopeAnchorClientY !== null ? hoverState.scopeAnchorClientY : hoverState.pointerClientY;
-      const scopedTarget = helpers.resolveScopedTarget(hoverState.hoveredElement, anchorClientX, anchorClientY, nextLevel);
-      if (!scopedTarget) {
-        return;
-      }
+    const currentTarget = hoverState.scopeLevel === helpers.SCOPE_EXACT
+      ? baseTarget
+      : helpers.resolveScopedTarget(hoverState.hoveredElement, anchorClientX, anchorClientY, hoverState.scopeLevel);
+    if (!currentTarget) {
+      return;
+    }
 
-      if (hoverState.scopeLevel === helpers.SCOPE_EXACT) {
-        const baseTarget = helpers.resolvePrecisionTarget(hoverState.hoveredElement, {
-          clientX: hoverState.pointerClientX,
-          clientY: hoverState.pointerClientY,
-          preferSelection: true,
-          scopeLevel: helpers.SCOPE_EXACT,
-        });
-        if (!baseTarget) {
-          return;
-        }
-        hoverState.scopeBaseTarget = baseTarget;
-        hoverState.scopeAnchorClientX = hoverState.pointerClientX;
-        hoverState.scopeAnchorClientY = hoverState.pointerClientY;
+    let nextLevel = hoverState.scopeLevel + direction;
+    let nextTarget = null;
+    while (nextLevel >= helpers.SCOPE_EXACT && nextLevel <= helpers.SCOPE_CONTAINER) {
+      const candidate = nextLevel === helpers.SCOPE_EXACT
+        ? baseTarget
+        : helpers.resolveScopedTarget(hoverState.hoveredElement, anchorClientX, anchorClientY, nextLevel);
+      const containsBase = nextLevel === helpers.SCOPE_EXACT || (candidate && helpers.doesTargetContain(candidate, baseTarget));
+      const isMonotonic = direction > 0
+        ? candidate && helpers.doesTargetContain(candidate, currentTarget)
+        : candidate && helpers.doesTargetContain(currentTarget, candidate);
+      if (containsBase && isMonotonic) {
+        nextTarget = candidate;
+        break;
       }
+      nextLevel += direction;
+    }
+
+    if (!nextTarget) {
+      return;
     }
 
     event.preventDefault();
@@ -245,6 +259,11 @@ function createContentEvents(context) {
       return;
     }
 
+    if (hoverState.scopeLevel === helpers.SCOPE_EXACT) {
+      hoverState.scopeBaseTarget = baseTarget;
+      hoverState.scopeAnchorClientX = hoverState.pointerClientX;
+      hoverState.scopeAnchorClientY = hoverState.pointerClientY;
+    }
     hoverState.scopeLevel = nextLevel;
     helpers.schedulePreviewUpdate();
   }
