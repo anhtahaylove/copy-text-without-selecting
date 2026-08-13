@@ -36,6 +36,12 @@ function createOptionsUi(context) {
     setSelectOptionText("history_group", "date", t("history_group_date", "Date"));
   }
 
+  function setLinkCopyFormatOptions() {
+    setSelectOptionText("link_copy_format", "markdown", t("link_copy_format_markdown", "Markdown"));
+    setSelectOptionText("link_copy_format", "text", t("link_copy_format_text", "Text only"));
+    setSelectOptionText("link_copy_format", "url", t("link_copy_format_url", "URL only"));
+  }
+
   function applyMessages() {
     setText("settings_eyebrow", "Settings");
     setText("settings_title", "Copy text with Alt-Click");
@@ -48,6 +54,9 @@ function createOptionsUi(context) {
     setText("general_section_title", "General controls");
     setText("meta_key_label", "Copy operation");
     setText("meta_key_help", "Hold your copy modifier and click to copy page content quickly.");
+    setText("link_copy_format_label", "Link copy format");
+    setText("link_copy_format_help", "Choose Markdown, visible text, or the resolved URL when copying a link.");
+    setLinkCopyFormatOptions();
     setText("preview_enabled_label", "Hover preview");
     setText("preview_enabled_help", "Hold the copy modifier to preview. Scroll while the outline is visible to expand or contract the target.");
     setText("avoid_editable_label", "Skip editable apps");
@@ -114,6 +123,7 @@ function createOptionsUi(context) {
     setText,
     setSelectOptionText,
     setHistorySelectOptions,
+    setLinkCopyFormatOptions,
     applyMessages,
     showStatus,
   };

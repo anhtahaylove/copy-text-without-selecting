@@ -97,5 +97,29 @@
   },
   "open_options": {
     "message": "Open full settings"
+  },
+  "link_copy_format_label": {
+    "message": "Định dạng khi copy liên kết"
+  },
+  "link_copy_format_help": {
+    "message": "Chọn Markdown, chỉ nhãn hiển thị hoặc URL đầy đủ khi copy liên kết."
+  },
+  "link_copy_format_markdown": {
+    "message": "Markdown"
+  },
+  "link_copy_format_text": {
+    "message": "Chỉ văn bản"
+  },
+  "link_copy_format_url": {
+    "message": "Chỉ URL"
+  },
+  "copy_format_markdown": {
+    "message": "Markdown"
+  },
+  "copy_format_text": {
+    "message": "Văn bản"
+  },
+  "copy_format_url": {
+    "message": "URL"
   }
 }

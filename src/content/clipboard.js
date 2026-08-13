@@ -34,7 +34,7 @@ function createContentClipboard(context, targeting, extraction, overlay, persist
       });
     }
     persistence.saveAnalyticsEvents(analyticsEvents);
-    await persistence.saveHistory(text, result, source || "click", precisionTarget.kind == "selection");
+    await persistence.saveHistory(text, result, source || "click", precisionTarget.kind == "selection", extraction.getCopyMetadata(precisionTarget));
     return true;
   }
 
