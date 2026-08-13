@@ -337,6 +337,13 @@ test("copies icon-only semantic actions without leaking ancestor text", async fu
     return readClipboard(page);
   }).toBe("[Example search result](https://example.com/search-result)");
 
+  await expect.poll(async function () {
+    const entries = await readHistoryEntries();
+    return entries.some(function (entry) {
+      return entry.text === "[Example search result](https://example.com/search-result)";
+    });
+  }).toBe(true);
+
   const historyBeforeUnlabelledAction = await readHistoryEntries();
   await page.evaluate(async function () {
     await navigator.clipboard.writeText("unchanged");
