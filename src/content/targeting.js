@@ -147,9 +147,10 @@ function createContentTargeting(context, dependencies) {
       }
     }
 
-    const deepTextTarget = getDeepTextTarget(clientX, clientY);
     const fallbackElement = getDeepElementTarget(sourceElement, clientX, clientY);
-    const preliminaryTarget = deepTextTarget || createElementTarget(fallbackElement);
+    const semanticElement = extraction().getClosestSemanticElement(fallbackElement);
+    const deepTextTarget = semanticElement ? null : getDeepTextTarget(clientX, clientY);
+    const preliminaryTarget = deepTextTarget || createElementTarget(semanticElement || fallbackElement);
     if (!preliminaryTarget) {
       return null;
     }
@@ -171,6 +172,18 @@ function createContentTargeting(context, dependencies) {
         return { kind: "list", container: extractionContext.container, rect: extractionContext.container.getBoundingClientRect(), node: extractionContext.container };
       case "link":
         return { kind: "link", anchor: extractionContext.anchor, rect: extractionContext.anchor.getBoundingClientRect(), node: extractionContext.anchor };
+      case "action":
+        if (!extractionContext.label) {
+          return null;
+        }
+        return {
+          kind: "action",
+          element: extractionContext.element,
+          label: extractionContext.label,
+          labelSource: extractionContext.labelSource,
+          rect: extractionContext.element.getBoundingClientRect(),
+          node: extractionContext.element,
+        };
       case "image":
         return { kind: "image", element: extractionContext.element, rect: extractionContext.element.getBoundingClientRect(), node: extractionContext.element };
       case "control":
@@ -291,6 +304,10 @@ function createContentTargeting(context, dependencies) {
   function getClosestMeaningfulElement(element) {
     let current = getElementNode(element);
     while (current) {
+      const semanticElement = extraction().getClosestSemanticElement(current);
+      if (semanticElement) {
+        return semanticElement;
+      }
       const tagName = current.nodeName.toUpperCase();
       if (hasMeaningfulText(current) || tagName == "IMG" || tagName == "INPUT" || tagName == "TEXTAREA" || tagName == "SELECT") {
         return current;
@@ -322,6 +339,10 @@ function createContentTargeting(context, dependencies) {
     if (node.nodeType != Node.ELEMENT_NODE) {
       return false;
     }
+    const semanticElement = extraction().getClosestSemanticElement(node);
+    if (semanticElement === node && extraction().resolveExtractionContext(createElementTarget(node)).kind == "action") {
+      return !!extraction().getAccessibleActionLabel(node).text;
+    }
     if (node.nodeName.toUpperCase() == "IMG") {
       return !!extraction().getImageText(node);
     }
@@ -334,6 +355,9 @@ function createContentTargeting(context, dependencies) {
       return false;
     }
     if (element.hidden || element.getAttribute("aria-hidden") == "true") {
+      return false;
+    }
+    if (typeof element.closest == "function" && element.closest("[hidden], [aria-hidden='true']")) {
       return false;
     }
     const style = window.getComputedStyle ? window.getComputedStyle(element) : null;

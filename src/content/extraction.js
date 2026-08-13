@@ -1,4 +1,9 @@
 function createContentExtraction(context, targeting) {
+  const ACTION_SELECTOR = "button, [role='button'], [role='menuitem']";
+  const CONTROL_SELECTOR = "input, textarea, select";
+  const LINK_SELECTOR = "a[href]";
+  const MAX_ACCESSIBLE_LABEL_LENGTH = 500;
+
   function getText(target) {
     const extractionContext = resolveExtractionContext(target);
     if (!extractionContext) {
@@ -27,6 +32,9 @@ function createContentExtraction(context, targeting) {
       case "link":
         raw = "[" + (collectVisibleText(extractionContext.anchor).trim() || extractionContext.anchor.href) + "](" + extractionContext.anchor.href + ")";
         break;
+      case "action":
+        raw = extractionContext.label || "";
+        break;
       case "control":
         raw = getPlainText(extractionContext.element).trim();
         break;
@@ -52,6 +60,27 @@ function createContentExtraction(context, targeting) {
       return null;
     }
 
+    const action = typeof element.closest == "function" ? element.closest(ACTION_SELECTOR) : null;
+    if (action) {
+      const accessibleLabel = getAccessibleActionLabel(action);
+      return {
+        kind: "action",
+        element: action,
+        label: accessibleLabel.text,
+        labelSource: accessibleLabel.source,
+      };
+    }
+
+    const control = typeof element.closest == "function" ? element.closest(CONTROL_SELECTOR) : null;
+    if (control) {
+      return { kind: "control", element: control };
+    }
+
+    const anchor = typeof element.closest == "function" ? element.closest(LINK_SELECTOR) : null;
+    if (anchor) {
+      return { kind: "link", anchor: anchor };
+    }
+
     if (element.nodeName.toUpperCase() == "IMG") {
       return { kind: "image", element: element };
     }
@@ -71,17 +100,54 @@ function createContentExtraction(context, targeting) {
       return { kind: "list", container: listContainer };
     }
 
-    const anchor = typeof element.closest == "function" ? element.closest("a[href]") : null;
-    if (anchor) {
-      return { kind: "link", anchor: anchor };
-    }
-
-    const tagName = element.nodeName.toUpperCase();
-    if (tagName == "INPUT" || tagName == "TEXTAREA" || tagName == "SELECT") {
-      return { kind: "control", element: element };
-    }
-
     return { kind: "text", node: node };
+  }
+
+  function getClosestSemanticElement(node) {
+    const element = targeting.getElementNode(node);
+    if (!element || typeof element.closest != "function") {
+      return null;
+    }
+    return element.closest(ACTION_SELECTOR + ", " + CONTROL_SELECTOR + ", " + LINK_SELECTOR);
+  }
+
+  function getAccessibleActionLabel(element) {
+    if (!element) {
+      return { text: "", source: "" };
+    }
+
+    const labelledBy = String(element.getAttribute("aria-labelledby") || "").trim();
+    if (labelledBy) {
+      const labelledText = labelledBy.split(/\s+/).map(function (id) {
+        const labelledElement = element.ownerDocument && element.ownerDocument.getElementById(id);
+        return labelledElement ? labelledElement.textContent : "";
+      }).join(" ");
+      const normalizedLabelledText = normalizeAccessibleLabel(labelledText);
+      if (normalizedLabelledText) {
+        return { text: normalizedLabelledText, source: "aria-labelledby" };
+      }
+    }
+
+    const ariaLabel = normalizeAccessibleLabel(element.getAttribute("aria-label"));
+    if (ariaLabel) {
+      return { text: ariaLabel, source: "aria-label" };
+    }
+
+    const visibleText = normalizeAccessibleLabel(collectVisibleText(element));
+    if (visibleText) {
+      return { text: visibleText, source: "text" };
+    }
+
+    const title = normalizeAccessibleLabel(element.getAttribute("title"));
+    if (title) {
+      return { text: title, source: "title" };
+    }
+
+    return { text: "", source: "" };
+  }
+
+  function normalizeAccessibleLabel(value) {
+    return sanitizeText(value).replace(/\s+/g, " ").slice(0, MAX_ACCESSIBLE_LABEL_LENGTH).trim();
   }
 
   function getExtractionNode(node) {
@@ -283,6 +349,9 @@ function createContentExtraction(context, targeting) {
   return {
     getText,
     resolveExtractionContext,
+    getClosestSemanticElement,
+    getAccessibleActionLabel,
+    normalizeAccessibleLabel,
     getExtractionNode,
     getImageText,
     collectVisibleText,

@@ -165,6 +165,16 @@ async function readLatestHistoryText() {
   return text;
 }
 
+async function readHistoryEntries() {
+  const extensionPage = await openExtensionPage("popup.html");
+  const entries = await extensionPage.evaluate(async function () {
+    const items = await chrome.storage.local.get({ copyHistory: [] });
+    return Array.isArray(items.copyHistory) ? items.copyHistory : [];
+  });
+  await extensionPage.close();
+  return entries;
+}
+
 async function withFreshExtensionContext(callback) {
   await closeExtensionContext();
   await launchExtensionContext();
@@ -258,6 +268,75 @@ test("captures form button copy before page click handlers", async function () {
     return readClipboard(page);
   }).toBe("I'm Feeling Lucky");
 
+  await page.close();
+});
+
+test("copies icon-only semantic actions without leaking ancestor text", async function () {
+  const { page } = await openPage("fixtures/semantic-actions.html");
+
+  await altClick(page.locator("#result-menu svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("About this result");
+  expect(await page.evaluate(function () {
+    return window.fixtureActionClickCount;
+  })).toBe(0);
+
+  await altClick(page.locator("#labelled-action svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Referenced action label");
+
+  await altClick(page.locator("#role-button-action svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Role button action");
+
+  await altClick(page.locator("#role-menuitem-action svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Role menu item action");
+
+  await altClick(page.locator("#result-link"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("[Example search result](https://example.com/search-result)");
+
+  const historyBeforeUnlabelledAction = await readHistoryEntries();
+  await page.evaluate(async function () {
+    await navigator.clipboard.writeText("unchanged");
+  });
+  await altClick(page.locator("#unlabelled-action svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("unchanged");
+  expect((await readHistoryEntries()).length).toBe(historyBeforeUnlabelledAction.length);
+
+  await page.close();
+});
+
+test("copies a focused icon-only action through the shortcut path", async function () {
+  const { page } = await openPage("fixtures/semantic-actions.html");
+  await page.locator("#result-menu").focus();
+
+  const popupPage = await openExtensionPage("popup.html");
+  await popupPage.evaluate(async function () {
+    const tabs = await chrome.tabs.query({ lastFocusedWindow: true });
+    const targetTab = tabs.find(function (tab) {
+      return typeof tab.url === "string" && tab.url.includes("/fixtures/semantic-actions.html");
+    });
+    if (!targetTab || !targetTab.id) {
+      throw new Error("Fixture tab not found for semantic shortcut test.");
+    }
+    await chrome.tabs.sendMessage(targetTab.id, {
+      type: "COPY_TEXT_WITHOUT_SELECTING_SHORTCUT",
+    });
+  });
+  await popupPage.close();
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("About this result");
   await page.close();
 });
 

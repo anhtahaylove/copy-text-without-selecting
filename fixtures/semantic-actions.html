@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copy Extension Fixture - Semantic Actions</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 40px auto;
+            max-width: 760px;
+            padding: 0 20px 80px;
+            line-height: 1.5;
+        }
+        .result {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 12px;
+            align-items: start;
+            padding: 20px 0;
+            border-bottom: 1px solid #dbe4ee;
+        }
+        .result a {
+            font-size: 1.2rem;
+        }
+        button, [role="button"], [role="menuitem"] {
+            width: 36px;
+            height: 36px;
+            display: inline-grid;
+            place-items: center;
+            border: 1px solid #cbd5e1;
+            border-radius: 999px;
+            background: white;
+        }
+        svg {
+            width: 18px;
+            height: 18px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Semantic action scenarios</h1>
+
+    <article class="result">
+        <div>
+            <a id="result-link" href="https://example.com/search-result">Example search result</a>
+            <p>This neighboring result text must never be copied from its icon-only menu.</p>
+        </div>
+        <button id="result-menu" type="button" aria-label="About this result" title="Fallback title">
+            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                <circle cx="12" cy="5" r="1.5"></circle>
+                <circle cx="12" cy="12" r="1.5"></circle>
+                <circle cx="12" cy="19" r="1.5"></circle>
+            </svg>
+        </button>
+    </article>
+
+    <span id="labelled-action-name" hidden>Referenced action label</span>
+    <button id="labelled-action" type="button" aria-labelledby="labelled-action-name" aria-label="Ignored aria label" title="Ignored title">
+        <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M4 12h16"></path></svg>
+    </button>
+
+    <button id="unlabelled-action" type="button">
+        <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="5"></circle></svg>
+    </button>
+
+    <div id="role-button-action" role="button" tabindex="0" aria-label="Role button action">
+        <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M6 12h12"></path></svg>
+    </div>
+
+    <div id="role-menuitem-action" role="menuitem" tabindex="0" title="Role menu item action">
+        <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M12 6v12"></path></svg>
+    </div>
+
+    <script>
+        window.fixtureActionClickCount = 0;
+        document.querySelectorAll("button, [role='button'], [role='menuitem']").forEach(function (action) {
+            action.addEventListener("click", function () {
+                window.fixtureActionClickCount += 1;
+            });
+        });
+    </script>
+</body>
+</html>
