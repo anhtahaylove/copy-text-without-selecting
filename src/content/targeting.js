@@ -37,30 +37,28 @@ function createContentTargeting(context, dependencies) {
     hoverState.pointerClientY = event.clientY;
   }
 
-  function resolveScopedTarget(sourceNode, clientX, clientY, level) {
+  function resolveScopedTarget(sourceNode, clientX, clientY, level, baseTarget) {
     if (level <= SCOPE_EXACT) {
       return null;
     }
 
-    const caretRange = getCaretRangeAtPoint(clientX, clientY);
-    if (!caretRange) {
-      return null;
-    }
-
-    const textNode = caretRange.startContainer;
+    const caretRange = baseTarget ? null : getCaretRangeAtPoint(clientX, clientY);
+    const textNode = baseTarget && baseTarget.kind === "text" ? baseTarget.node : caretRange && caretRange.startContainer;
+    const caretOffset = baseTarget && Number.isFinite(baseTarget.caretOffset) ? baseTarget.caretOffset : caretRange && caretRange.startOffset;
     if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
       return null;
     }
 
     if (level === SCOPE_SENTENCE) {
-      const sentenceRange = expandToSentence(textNode, caretRange.startOffset);
-      if (sentenceRange) {
+      const sentenceTarget = expandToSentence(textNode, caretOffset);
+      if (sentenceTarget) {
         return {
           kind: "scope",
           node: textNode,
-          range: sentenceRange,
-          rect: getRangeBoundingRect(sentenceRange),
-          text: sentenceRange.toString().trim(),
+          range: sentenceTarget.range,
+          rect: sentenceTarget.rect,
+          text: sentenceTarget.text,
+          scopeLevel: SCOPE_SENTENCE,
         };
       }
     }
@@ -121,18 +119,55 @@ function createContentTargeting(context, dependencies) {
     const range = document.createRange();
     range.setStart(startBoundary.node, startBoundary.offset);
     range.setEnd(endBoundary.node, endBoundary.offset);
-    return range;
+    return {
+      range: range,
+      rect: getVisibleSentenceRect(textNodes, target.start, target.end),
+      text: text.slice(target.start, target.end).trim(),
+    };
   }
 
-  function getSentenceSegments(text) {
+  function getVisibleSentenceRect(textNodes, start, end) {
+    let consumed = 0;
+    let rect = null;
+    textNodes.forEach(function (node) {
+      const length = String(node.textContent || "").length;
+      const nodeStart = Math.max(0, start - consumed);
+      const nodeEnd = Math.min(length, end - consumed);
+      consumed += length;
+      if (nodeEnd <= nodeStart) {
+        return;
+      }
+      const sliceRange = document.createRange();
+      sliceRange.setStart(node, nodeStart);
+      sliceRange.setEnd(node, nodeEnd);
+      rect = unionRects(rect, getRangeBoundingRect(sliceRange));
+    });
+    return rect;
+  }
+
+  function unionRects(left, right) {
+    if (!left) return right;
+    if (!right) return left;
+    const result = {
+      left: Math.min(left.left, right.left),
+      top: Math.min(left.top, right.top),
+      right: Math.max(left.right, right.right),
+      bottom: Math.max(left.bottom, right.bottom),
+    };
+    result.width = result.right - result.left;
+    result.height = result.bottom - result.top;
+    return result;
+  }
+
+  function getSentenceSegments(text, forceFallback) {
     let sentences = [];
-    if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+    if (!forceFallback && typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
       const segmenter = new Intl.Segmenter(undefined, { granularity: "sentence" });
       sentences = Array.from(segmenter.segment(text)).map(function (segment) {
         return { start: segment.index, end: segment.index + segment.segment.length };
       });
     } else {
-      const sentenceBreaks = /[.!?\u3002\uff01\uff1f]+(?:\s+|$)/g;
+      const sentenceBreaks = /[.!?\u3002\uff01\uff1f]+["'\u201d\u2019)\]]*(?:\s+|$)/g;
       let lastEnd = 0;
       let match;
       while ((match = sentenceBreaks.exec(text)) !== null) {
@@ -245,7 +280,7 @@ function createContentTargeting(context, dependencies) {
     const scopeClientX = hoverState.scopeAnchorClientX !== null ? hoverState.scopeAnchorClientX : clientX;
     const scopeClientY = hoverState.scopeAnchorClientY !== null ? hoverState.scopeAnchorClientY : clientY;
     if (requestedScopeLevel > SCOPE_EXACT) {
-      const scopedTarget = resolveScopedTarget(sourceElement, scopeClientX, scopeClientY, requestedScopeLevel);
+      const scopedTarget = resolveScopedTarget(sourceElement, scopeClientX, scopeClientY, requestedScopeLevel, hoverState.scopeBaseTarget);
       if (scopedTarget) {
         return scopedTarget;
       }
@@ -365,6 +400,7 @@ function createContentTargeting(context, dependencies) {
       return {
         kind: "text",
         node: node,
+        caretOffset: range.startOffset,
         rect: getRangeBoundingRect(textRange),
       };
     }
@@ -680,6 +716,8 @@ function createContentTargeting(context, dependencies) {
     syncPointerState,
     resolveScopedTarget,
     expandToSentence,
+    getVisibleSentenceRect,
+    unionRects,
     getSentenceSegments,
     findScopeParagraphElement,
     getVisibleTextNodes,
