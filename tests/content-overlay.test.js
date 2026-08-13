@@ -3,11 +3,16 @@ const assert = require("node:assert/strict");
 
 const { createContentOverlay } = require("../src/content/overlay.js");
 
-function createOverlay(scopeLevel) {
+function createOverlay(scopeLevel, linkCopyFormat) {
   const context = {
     state: {
       hoverState: { scopeLevel: scopeLevel || 0 },
-      settings: { toastDurationMs: 1400 },
+      settings: { toastDurationMs: 1400, linkCopyFormat: linkCopyFormat || "markdown" },
+    },
+    utils: {
+      normalizeLinkCopyFormat: function (value) {
+        return ["markdown", "text", "url"].includes(value) ? value : "markdown";
+      },
     },
     t: function (key, fallback) {
       return fallback;
@@ -47,4 +52,10 @@ test("target badge describes expanded scope and bounds long labels", function ()
   });
   assert.equal(badge.length, "Action · ".length + 64);
   assert.ok(badge.endsWith("…"));
+});
+
+test("target badge shows the effective link copy format", function () {
+  assert.equal(createOverlay(0, "markdown").getTargetBadgeText({ kind: "link" }), "Link · Markdown");
+  assert.equal(createOverlay(0, "text").getTargetBadgeText({ kind: "link" }), "Link · Text");
+  assert.equal(createOverlay(0, "url").getTargetBadgeText({ kind: "link" }), "Link · URL");
 });

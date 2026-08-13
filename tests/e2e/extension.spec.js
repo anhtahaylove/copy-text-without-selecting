@@ -462,6 +462,65 @@ test("copies icon-only semantic actions without leaking ancestor text", async fu
   await page.close();
 });
 
+test("copies regular, icon-only, and unlabeled links in every configured format", async function () {
+  const { page } = await openPage("fixtures/semantic-actions.html");
+  const cases = [
+    {
+      format: "markdown",
+      regular: "[Example search result](https://example.com/search-result)",
+      icon: "[Open documentation](https://example.com/icon-docs)",
+      unlabeled: "[https://example.com/url-only](https://example.com/url-only)",
+    },
+    {
+      format: "text",
+      regular: "Example search result",
+      icon: "Open documentation",
+      unlabeled: "https://example.com/url-only",
+    },
+    {
+      format: "url",
+      regular: "https://example.com/search-result",
+      icon: "https://example.com/icon-docs",
+      unlabeled: "https://example.com/url-only",
+    },
+  ];
+
+  try {
+    for (const item of cases) {
+      await updateSyncSettings({ linkCopyFormat: item.format });
+      await page.waitForTimeout(100);
+
+      await altClick(page.locator("#result-link"));
+      await expect.poll(async function () {
+        return readClipboard(page);
+      }).toBe(item.regular);
+      const regularHtml = await readClipboardHtml(page);
+      if (item.format === "markdown") {
+        expect(regularHtml).toContain('<a id="result-link"');
+      } else {
+        expect(regularHtml).toBe(item.regular);
+      }
+
+      await altClick(page.locator("#icon-link svg"));
+      await expect.poll(async function () {
+        return readClipboard(page);
+      }).toBe(item.icon);
+
+      await altClick(page.locator("#url-only-link svg"));
+      await expect.poll(async function () {
+        return readClipboard(page);
+      }).toBe(item.unlabeled);
+
+      const latestEntry = (await readHistoryEntries())[0];
+      expect(latestEntry.targetKind).toBe("link");
+      expect(latestEntry.copyFormat).toBe(item.format);
+    }
+  } finally {
+    await updateSyncSettings({ linkCopyFormat: "markdown" });
+    await page.close();
+  }
+});
+
 test("copies a focused icon-only action through the shortcut path", async function () {
   const { page } = await openPage("fixtures/semantic-actions.html");
   await page.locator("#result-menu").focus();
@@ -866,7 +925,7 @@ test("copies hovered paragraph through the shortcut message path", async functio
   await page.close();
 });
 
-test("saves popup settings and excluded domains roundtrip", async function () {
+test("saves popup and link format settings with excluded domains roundtrip", async function () {
   const popupPage = await openExtensionPage("popup.html");
   await expect(popupPage.locator("#open_companion")).toHaveCount(0);
   await popupPage.selectOption("#popup_meta_key", "Ctrl");
@@ -875,10 +934,20 @@ test("saves popup settings and excluded domains roundtrip", async function () {
   await popupPage.waitForTimeout(250);
   await popupPage.close();
 
-  const optionsPage = await openExtensionPage("options.html");
+  let optionsPage = await openExtensionPage("options.html");
   await expect(optionsPage.locator("#meta_key")).toHaveValue("Ctrl");
   await expect(optionsPage.locator("#copy_history_limit")).toHaveValue("7");
   await expect(optionsPage.locator("#preview_enabled")).not.toBeChecked();
+  await expect(optionsPage.locator("#link_copy_format")).toHaveValue("markdown");
+
+  await optionsPage.selectOption("#link_copy_format", "url");
+  await expect(optionsPage.locator("#save_status")).toHaveText("Saved");
+  await optionsPage.close();
+
+  optionsPage = await openExtensionPage("options.html");
+  await expect(optionsPage.locator("#link_copy_format")).toHaveValue("url");
+  await optionsPage.selectOption("#link_copy_format", "markdown");
+  await expect(optionsPage.locator("#save_status")).toHaveText("Saved");
 
   await optionsPage.locator("#tab_sites").click();
   await optionsPage.locator("#domain_input").fill(HOST);

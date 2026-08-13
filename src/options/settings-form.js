@@ -4,6 +4,7 @@ function createSettingsForm(context) {
     context.state.settings = settings;
 
     document.getElementById("meta_key").value = settings.metaKey;
+    document.getElementById("link_copy_format").value = settings.linkCopyFormat;
     document.getElementById("preview_enabled").checked = settings.previewEnabled;
     document.getElementById("avoid_editable").checked = settings.avoidEditable;
     document.getElementById("keyboard_shortcut_enabled").checked = settings.keyboardShortcutEnabled;
@@ -23,6 +24,7 @@ function createSettingsForm(context) {
 
     const settings = context.utils.mergeSettings({
       metaKey: document.getElementById("meta_key").value,
+      linkCopyFormat: document.getElementById("link_copy_format").value,
       previewEnabled: document.getElementById("preview_enabled").checked,
       avoidEditable: document.getElementById("avoid_editable").checked,
       keyboardShortcutEnabled: document.getElementById("keyboard_shortcut_enabled").checked,

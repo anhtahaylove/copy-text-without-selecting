@@ -47,10 +47,13 @@ python -m http.server 4173
 
 ## Basic Copy
 
-- Automated by Playwright: plain paragraph, link Markdown, input, textarea, and select copy flows.
+- Automated by Playwright: plain paragraph, all three link formats, icon-only links, input, textarea, and select copy flows.
 - [ ] Plain paragraph copies visible text
 - [ ] Native `Ctrl+C` / browser copy on selected text creates a history item with native source
-- [ ] Link copies as Markdown `[text](href)`
+- [ ] Link copies as Markdown `[text](href)` with the default setting
+- [ ] Link format `Text` copies the visible or accessible label and falls back to the URL
+- [ ] Link format `URL` copies the fully resolved URL
+- [ ] Icon-only links use `aria-labelledby`/`aria-label`/`title` before falling back to the URL
 - [ ] Image copies `src` or `alt`
 - [ ] Input copies `value`
 - [ ] Textarea copies multiline value

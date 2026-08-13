@@ -30,7 +30,7 @@ function createContentExtraction(context, targeting) {
         raw = getImageText(extractionContext.element);
         break;
       case "link":
-        raw = "[" + (getAccessibleElementLabel(extractionContext.anchor).text || extractionContext.anchor.href) + "](" + extractionContext.anchor.href + ")";
+        raw = formatLinkText(extractionContext.anchor);
         break;
       case "action":
         raw = extractionContext.label || "";
@@ -171,6 +171,35 @@ function createContentExtraction(context, targeting) {
     return { text: "", source: "" };
   }
 
+  function getAccessibleLinkLabel(anchor) {
+    return getAccessibleElementLabel(anchor);
+  }
+
+  function getEffectiveLinkCopyFormat() {
+    return context.utils.normalizeLinkCopyFormat(context.state.settings.linkCopyFormat);
+  }
+
+  function formatLinkText(anchor) {
+    const href = anchor.href;
+    const label = getAccessibleLinkLabel(anchor).text || href;
+    switch (getEffectiveLinkCopyFormat()) {
+      case "text": return label;
+      case "url": return href;
+      default: return "[" + label + "](" + href + ")";
+    }
+  }
+
+  function getCopyMetadata(target) {
+    if (!target || !target.kind) {
+      return {};
+    }
+
+    const metadata = { targetKind: target.kind };
+    if (target.kind === "link") {
+      metadata.copyFormat = getEffectiveLinkCopyFormat();
+    }
+    return metadata;
+  }
   function normalizeAccessibleLabel(value) {
     return sanitizeText(value).replace(/\s+/g, " ").slice(0, MAX_ACCESSIBLE_LABEL_LENGTH).trim();
   }
@@ -352,6 +381,9 @@ function createContentExtraction(context, targeting) {
       if (extractionContext && extractionContext.kind === "scope") {
         return escapeHtmlText(getText(target));
       }
+      if (extractionContext && extractionContext.kind === "link" && getEffectiveLinkCopyFormat() !== "markdown") {
+        return escapeHtmlText(getText(target));
+      }
 
       if (target.range) {
         const fragment = target.range.cloneContents();
@@ -417,6 +449,10 @@ function createContentExtraction(context, targeting) {
     getAccessibleElementLabel,
     getClosestMatchingElement,
     getComposedParentElement,
+    getAccessibleLinkLabel,
+    getEffectiveLinkCopyFormat,
+    formatLinkText,
+    getCopyMetadata,
     normalizeAccessibleLabel,
     getExtractionNode,
     getImageText,
