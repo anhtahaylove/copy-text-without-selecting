@@ -223,6 +223,27 @@ async function getTextRangePoint(page, selector, phrase) {
   }, { selector, phrase });
 }
 
+async function getTextStartPoint(page, selector, phrase) {
+  return page.evaluate(function (input) {
+    const element = document.querySelector(input.selector);
+    const textNode = element && Array.from(element.childNodes).find(function (node) {
+      return node.nodeType === Node.TEXT_NODE && String(node.textContent || "").includes(input.phrase);
+    });
+    if (!textNode) {
+      throw new Error("Text node not found for scope fixture.");
+    }
+    const start = textNode.textContent.indexOf(input.phrase);
+    const range = document.createRange();
+    range.setStart(textNode, start);
+    range.setEnd(textNode, start + 1);
+    const rect = range.getBoundingClientRect();
+    return {
+      x: rect.left + Math.min(1, rect.width / 4),
+      y: rect.top + (rect.height / 2),
+    };
+  }, { selector, phrase });
+}
+
 test.beforeAll(async function () {
   try {
     await startFixtureServer();
@@ -544,6 +565,22 @@ test("keeps expanded scope through tiny pointer movement and supports contractio
     return readClipboard(page);
   }).toBe("First sentence. Second target sentence. Third sentence.");
 
+  await page.close();
+});
+
+test("selects the following sentence at its first-character boundary", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const point = await getTextStartPoint(page, "#scope-text", "Second target sentence");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Second target sentence.");
   await page.close();
 });
 
