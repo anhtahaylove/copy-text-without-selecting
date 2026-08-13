@@ -58,6 +58,7 @@ function createContentTargeting(context, dependencies) {
           range: sentenceTarget.range,
           rect: sentenceTarget.rect,
           text: sentenceTarget.text,
+          textNodes: sentenceTarget.textNodes,
           scopeLevel: SCOPE_SENTENCE,
         };
       }
@@ -71,7 +72,7 @@ function createContentTargeting(context, dependencies) {
     }
 
     if (level === SCOPE_CONTAINER) {
-      const container = paragraphElement && paragraphElement.parentElement;
+      const container = paragraphElement && extraction().getComposedParentElement(paragraphElement);
       if (container && container !== document.body && container !== document.documentElement) {
         return createScopeElementTarget(container, SCOPE_CONTAINER);
       }
@@ -116,14 +117,38 @@ function createContentTargeting(context, dependencies) {
       return null;
     }
 
-    const range = document.createRange();
-    range.setStart(startBoundary.node, startBoundary.offset);
-    range.setEnd(endBoundary.node, endBoundary.offset);
+    const sentenceTextNodes = getTextNodesInSlice(textNodes, target.start, target.end);
+    const range = createRangeAcrossBoundaries(startBoundary, endBoundary);
     return {
       range: range,
       rect: getVisibleSentenceRect(textNodes, target.start, target.end),
       text: text.slice(target.start, target.end).trim(),
+      textNodes: sentenceTextNodes,
     };
+  }
+
+  function getTextNodesInSlice(textNodes, start, end) {
+    let consumed = 0;
+    return textNodes.filter(function (node) {
+      const length = String(node.textContent || "").length;
+      const overlaps = end > consumed && start < consumed + length;
+      consumed += length;
+      return overlaps;
+    });
+  }
+
+  function createRangeAcrossBoundaries(startBoundary, endBoundary) {
+    if (!startBoundary || !endBoundary || startBoundary.node.getRootNode() !== endBoundary.node.getRootNode()) {
+      return null;
+    }
+    const range = document.createRange();
+    try {
+      range.setStart(startBoundary.node, startBoundary.offset);
+      range.setEnd(endBoundary.node, endBoundary.offset);
+      return range;
+    } catch (error) {
+      return null;
+    }
   }
 
   function getVisibleSentenceRect(textNodes, start, end) {
@@ -210,7 +235,7 @@ function createContentTargeting(context, dependencies) {
       if (element.nodeName === "P" || element.nodeName === "LI" || display === "block" || display === "list-item" || display === "flex" || display === "grid") {
         return element;
       }
-      element = element.parentElement;
+      element = extraction().getComposedParentElement(element);
     }
     return null;
   }
@@ -219,20 +244,37 @@ function createContentTargeting(context, dependencies) {
     if (!root) {
       return [];
     }
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode: function (node) {
-        return isNodeVisible(node) && String(node.textContent || "").length
-          ? NodeFilter.FILTER_ACCEPT
-          : NodeFilter.FILTER_REJECT;
-      },
-    });
     const nodes = [];
-    let current = walker.nextNode();
-    while (current) {
-      nodes.push(current);
-      current = walker.nextNode();
-    }
+    collectComposedTextNodes(root, nodes);
     return nodes;
+  }
+
+  function collectComposedTextNodes(node, nodes) {
+    if (!node) {
+      return;
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (isNodeVisible(node) && String(node.textContent || "").length) {
+        nodes.push(node);
+      }
+      return;
+    }
+    if (node.nodeType === Node.ELEMENT_NODE && !isNodeVisible(node)) {
+      return;
+    }
+
+    let children;
+    if (node.nodeType === Node.ELEMENT_NODE && node.nodeName.toUpperCase() === "SLOT" && typeof node.assignedNodes === "function") {
+      const assignedNodes = node.assignedNodes({ flatten: true });
+      children = assignedNodes.length ? assignedNodes : Array.from(node.childNodes || []);
+    } else if (node.nodeType === Node.ELEMENT_NODE && node.shadowRoot) {
+      children = Array.from(node.shadowRoot.childNodes || []);
+    } else {
+      children = Array.from(node.childNodes || []);
+    }
+    children.forEach(function (child) {
+      collectComposedTextNodes(child, nodes);
+    });
   }
 
   function getTextBoundary(textNodes, absoluteOffset, isEnd) {
@@ -255,6 +297,7 @@ function createContentTargeting(context, dependencies) {
       node: element,
       rect: element.getBoundingClientRect ? element.getBoundingClientRect() : null,
       text: extraction().collectVisibleText(element).trim(),
+      textNodes: getVisibleTextNodes(element),
       scopeLevel: level,
     };
   }
@@ -610,12 +653,43 @@ function createContentTargeting(context, dependencies) {
   function doesTargetContain(containerTarget, innerTarget) {
     const containerRange = getTargetRange(containerTarget);
     const innerRange = getTargetRange(innerTarget);
-    if (!containerRange || !innerRange) {
-      return false;
+    if (containerRange && innerRange && rangesShareRoot(containerRange, innerRange)) {
+      try {
+        return containerRange.compareBoundaryPoints(Range.START_TO_START, innerRange) <= 0
+          && containerRange.compareBoundaryPoints(Range.END_TO_END, innerRange) >= 0;
+      } catch (error) {
+        // Fall back to composed text-node containment below.
+      }
     }
 
-    return containerRange.compareBoundaryPoints(Range.START_TO_START, innerRange) <= 0
-      && containerRange.compareBoundaryPoints(Range.END_TO_END, innerRange) >= 0;
+    const containerTextNodes = getTargetTextNodes(containerTarget);
+    const innerTextNodes = getTargetTextNodes(innerTarget);
+    return innerTextNodes.length > 0 && innerTextNodes.every(function (node) {
+      return containerTextNodes.includes(node);
+    });
+  }
+
+  function rangesShareRoot(left, right) {
+    return left.startContainer.getRootNode() === left.endContainer.getRootNode()
+      && left.startContainer.getRootNode() === right.startContainer.getRootNode()
+      && right.startContainer.getRootNode() === right.endContainer.getRootNode();
+  }
+
+  function getTargetTextNodes(target) {
+    if (!target) {
+      return [];
+    }
+    if (Array.isArray(target.textNodes)) {
+      return target.textNodes;
+    }
+    const node = target.node || target.element || target.anchor || target.table || target.container;
+    if (!node) {
+      return [];
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      return [node];
+    }
+    return getVisibleTextNodes(node);
   }
 
   function getTargetRange(target) {
@@ -721,6 +795,7 @@ function createContentTargeting(context, dependencies) {
     getSentenceSegments,
     findScopeParagraphElement,
     getVisibleTextNodes,
+    collectComposedTextNodes,
     getTextBoundary,
     createScopeElementTarget,
     resolvePrecisionTarget,

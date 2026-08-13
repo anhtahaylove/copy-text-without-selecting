@@ -617,6 +617,23 @@ test("sentence scope excludes hidden descendants from plain and rich clipboard",
   await page.close();
 });
 
+test("sentence scope follows the composed tree and excludes unassigned light DOM", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const point = await getTextRangePoint(page, "#shadow-scope-target", "Visible target");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Visible target sentence.");
+  expect(await readClipboardHtml(page)).toBe("Visible target sentence.");
+  await page.close();
+});
+
 test("never shrinks a whole-text exact target when expanding scope", async function () {
   const { page } = await openPage("fixtures/scope-preview.html");
   const point = await getTextRangePoint(page, "#scope-text", "Second target sentence");
