@@ -5,7 +5,7 @@ function createContentPersistence(context) {
     return context.state.settings;
   }
 
-  async function saveHistory(text, result, source, isSelectionBased) {
+  async function saveHistory(text, result, source, isSelectionBased, metadata) {
     const entry = {
       text: text,
       snippet: utils.getTextSnippet(text),
@@ -17,6 +17,12 @@ function createContentPersistence(context) {
       replayCount: 0,
       lastReplayedAt: isSelectionBased ? Date.now() : 0,
     };
+    if (metadata && metadata.targetKind) {
+      entry.targetKind = metadata.targetKind;
+    }
+    if (metadata && metadata.copyFormat) {
+      entry.copyFormat = metadata.copyFormat;
+    }
     const backgroundSaved = await saveHistoryThroughBackground(entry);
     if (!backgroundSaved && utils.isExtensionContextValid()) {
       console.warn("Saving copy history through the background service worker failed.");

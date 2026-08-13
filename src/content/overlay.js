@@ -219,11 +219,24 @@ function createContentOverlay(context, targeting, extraction) {
       return getTargetTypeLabel(target) + " \u00b7 " + scopeLabel;
     }
 
+    if (target.kind === "link") {
+      const format = context.utils.normalizeLinkCopyFormat(context.state.settings.linkCopyFormat);
+      return getTargetTypeLabel(target) + " \u00b7 " + getCopyFormatLabel(format);
+    }
+
     if (target.kind === "action" && target.labelSource && target.labelSource !== "text") {
       return context.t("target_type_action", "Action") + " \u00b7 " + truncateBadgeText(target.label, 64);
     }
 
     return "";
+  }
+
+  function getCopyFormatLabel(format) {
+    switch (format) {
+      case "text": return context.t("copy_format_text", "Text");
+      case "url": return context.t("copy_format_url", "URL");
+      default: return context.t("copy_format_markdown", "Markdown");
+    }
   }
 
   function getTargetTypeLabel(target) {
@@ -355,6 +368,7 @@ function createContentOverlay(context, targeting, extraction) {
     getTargetBadgeText,
     getTargetTypeLabel,
     getScopeLabel,
+    getCopyFormatLabel,
     truncateBadgeText,
     hasRenderableRect,
     restartAnimation,

@@ -115,3 +115,39 @@ test("successful precision copy resets expanded scope", async function () {
     restoreNavigator();
   }
 });
+
+test("content history forwards optional target and link format metadata", async function () {
+  let sentMessage;
+  const restoreChrome = replaceGlobal("chrome", {
+    runtime: {
+      id: "test-extension",
+      sendMessage: async function (message) {
+        sentMessage = message;
+        return { ok: true };
+      },
+    },
+  });
+  const restoreWindow = replaceGlobal("window", {
+    location: {
+      href: "https://example.com/page",
+      hostname: "example.com",
+    },
+  });
+  const persistence = createContentPersistence({
+    utils: core,
+    state: { settings: core.mergeSettings({ linkCopyFormat: "url" }) },
+    handleExtensionContextError: function () { return false; },
+  });
+
+  try {
+    await persistence.saveHistory("https://example.com/docs", "copied", "click", false, {
+      targetKind: "link",
+      copyFormat: "url",
+    });
+    assert.equal(sentMessage.payload.entry.targetKind, "link");
+    assert.equal(sentMessage.payload.entry.copyFormat, "url");
+  } finally {
+    restoreWindow();
+    restoreChrome();
+  }
+});

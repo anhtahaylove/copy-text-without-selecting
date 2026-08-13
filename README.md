@@ -19,7 +19,8 @@ unpacked Chrome extension. It is not distributed through the Chrome Web Store.
 
 - Copy text from page elements with a configurable modifier key
 - Hover preview overlay while holding the modifier
-- Smart copy formatting for links and images
+- Configurable link copy output: Markdown, visible text, or resolved URL
+- Smart copy formatting for images and structured developer text
 - Domain blacklist that disables both preview and copy behavior
 - Quick popup controls for the current site
 - Full tabbed settings center for General, Sites, Feedback, Language, and History
@@ -60,6 +61,7 @@ The clicked text is copied immediately without manual selection in the common ca
 ## Settings
 
 - **Copy modifier**: `Alt`, `Ctrl`, or `Shift`
+- **Link copy format**: `Markdown` (default), visible `Text`, or resolved `URL`
 - **Hover preview**: toggles the dashed target overlay
 - **Skip editable apps**: avoids contenteditable editors and rich text surfaces
 - **Feedback duration**: controls how long copy feedback remains visible
