@@ -324,13 +324,18 @@ test("copies icon-only semantic actions without leaking ancestor text", async fu
     return readClipboard(page);
   }).toBe("Submit image action");
 
-  await altClick(page.locator("#shadow-action-host svg"));
+  await altClick(page.locator("#shadow-slotted-icon svg"));
   await expect.poll(async function () {
     return readClipboard(page);
-  }).toBe("Shadow action");
+  }).toBe("Shadow slot action");
   expect(await page.evaluate(function () {
     return window.fixtureActionClickCount;
   })).toBe(0);
+
+  await altClick(page.locator("#nested-action-link"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("[Nested documentation](https://example.com/nested-docs)");
 
   await altClick(page.locator("#result-link"));
   await expect.poll(async function () {
@@ -349,6 +354,12 @@ test("copies icon-only semantic actions without leaking ancestor text", async fu
     await navigator.clipboard.writeText("unchanged");
   });
   await altClick(page.locator("#unlabelled-action svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("unchanged");
+  expect((await readHistoryEntries()).length).toBe(historyBeforeUnlabelledAction.length);
+
+  await altClick(page.locator("#hidden-descendant-action svg"));
   await expect.poll(async function () {
     return readClipboard(page);
   }).toBe("unchanged");
@@ -380,7 +391,9 @@ test("copies a focused icon-only action through the shortcut path", async functi
     return readClipboard(page);
   }).toBe("About this result");
 
-  await page.locator("#shadow-action-host").focus();
+  await page.locator("#shadow-action-host").evaluate(function (host) {
+    host.shadowRoot.getElementById("shadow-action-button").focus();
+  });
   const shadowPopupPage = await openExtensionPage("popup.html");
   await shadowPopupPage.evaluate(async function () {
     const tabs = await chrome.tabs.query({ lastFocusedWindow: true });
@@ -397,7 +410,7 @@ test("copies a focused icon-only action through the shortcut path", async functi
   await shadowPopupPage.close();
   await expect.poll(async function () {
     return readClipboard(page);
-  }).toBe("Shadow action");
+  }).toBe("Shadow slot action");
   await page.close();
 });
 

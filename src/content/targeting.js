@@ -302,19 +302,40 @@ function createContentTargeting(context, dependencies) {
   }
 
   function getClosestMeaningfulElement(element) {
-    let current = getElementNode(element);
+    const initialElement = getElementNode(element);
+    const semanticElement = extraction().getClosestSemanticElement(initialElement);
+    if (semanticElement) {
+      return semanticElement;
+    }
+
+    if (isGraphicOnlyTarget(initialElement)) {
+      return null;
+    }
+
+    let current = initialElement;
     while (current) {
-      const semanticElement = extraction().getClosestSemanticElement(current);
-      if (semanticElement) {
-        return semanticElement;
-      }
       const tagName = current.nodeName.toUpperCase();
       if (hasMeaningfulText(current) || tagName == "IMG" || tagName == "INPUT" || tagName == "TEXTAREA" || tagName == "SELECT") {
         return current;
       }
+      current = extraction().getComposedParentElement(current);
+    }
+    return null;
+  }
+
+  function isGraphicOnlyTarget(element) {
+    let current = element;
+    while (current) {
+      const tagName = current.nodeName.toUpperCase();
+      if (["SVG", "PATH", "CIRCLE", "ELLIPSE", "G", "LINE", "POLYGON", "POLYLINE", "RECT", "USE"].includes(tagName)) {
+        return true;
+      }
+      if (String(current.textContent || "").trim()) {
+        return false;
+      }
       current = current.parentElement;
     }
-    return getElementNode(element);
+    return false;
   }
 
   function createElementTarget(element) {
@@ -350,19 +371,20 @@ function createContentTargeting(context, dependencies) {
   }
 
   function isNodeVisible(node) {
-    const element = getElementNode(node);
-    if (!element) {
+    let current = getElementNode(node);
+    if (!current) {
       return false;
     }
-    if (element.hidden || element.getAttribute("aria-hidden") == "true") {
-      return false;
-    }
-    if (typeof element.closest == "function" && element.closest("[hidden], [aria-hidden='true']")) {
-      return false;
-    }
-    const style = window.getComputedStyle ? window.getComputedStyle(element) : null;
-    if (style && (style.display == "none" || style.visibility == "hidden")) {
-      return false;
+
+    while (current) {
+      if (current.hidden || current.getAttribute("aria-hidden") == "true") {
+        return false;
+      }
+      const style = window.getComputedStyle ? window.getComputedStyle(current) : null;
+      if (style && (style.display == "none" || style.visibility == "hidden")) {
+        return false;
+      }
+      current = extraction().getComposedParentElement(current);
     }
     return true;
   }
@@ -423,8 +445,9 @@ function createContentTargeting(context, dependencies) {
       return hoverState.hoveredElement;
     }
 
-    if (document.activeElement && document.activeElement !== document.body && document.activeElement !== document.documentElement) {
-      return document.activeElement;
+    const activeElement = getDeepActiveElement(document);
+    if (activeElement && activeElement !== document.body && activeElement !== document.documentElement) {
+      return activeElement;
     }
 
     const selection = window.getSelection ? window.getSelection() : null;
@@ -433,6 +456,14 @@ function createContentTargeting(context, dependencies) {
     }
 
     return null;
+  }
+
+  function getDeepActiveElement(root) {
+    let activeElement = root && root.activeElement;
+    while (activeElement && activeElement.shadowRoot && activeElement.shadowRoot.activeElement) {
+      activeElement = activeElement.shadowRoot.activeElement;
+    }
+    return activeElement || null;
   }
 
   function getNativeCopiedText() {
@@ -484,6 +515,7 @@ function createContentTargeting(context, dependencies) {
     isPointInsideRect,
     shouldIgnoreElement,
     resolveShortcutTarget,
+    getDeepActiveElement,
     getNativeCopiedText,
     getElementNode,
   };

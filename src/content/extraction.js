@@ -60,25 +60,23 @@ function createContentExtraction(context, targeting) {
       return null;
     }
 
-    const action = getClosestMatchingElement(element, ACTION_SELECTOR);
-    if (action) {
-      const accessibleLabel = getAccessibleActionLabel(action);
+    const semanticElement = getClosestSemanticElement(element);
+    if (semanticElement && semanticElement.matches(ACTION_SELECTOR)) {
+      const accessibleLabel = getAccessibleActionLabel(semanticElement);
       return {
         kind: "action",
-        element: action,
+        element: semanticElement,
         label: accessibleLabel.text,
         labelSource: accessibleLabel.source,
       };
     }
 
-    const control = getClosestMatchingElement(element, CONTROL_SELECTOR);
-    if (control) {
-      return { kind: "control", element: control };
+    if (semanticElement && semanticElement.matches(CONTROL_SELECTOR)) {
+      return { kind: "control", element: semanticElement };
     }
 
-    const anchor = getClosestMatchingElement(element, LINK_SELECTOR);
-    if (anchor) {
-      return { kind: "link", anchor: anchor };
+    if (semanticElement && semanticElement.matches(LINK_SELECTOR)) {
+      return { kind: "link", anchor: semanticElement };
     }
 
     if (element.nodeName.toUpperCase() == "IMG") {
@@ -122,6 +120,9 @@ function createContentExtraction(context, targeting) {
   function getComposedParentElement(element) {
     if (!element) {
       return null;
+    }
+    if (element.assignedSlot) {
+      return element.assignedSlot;
     }
     if (element.parentElement) {
       return element.parentElement;

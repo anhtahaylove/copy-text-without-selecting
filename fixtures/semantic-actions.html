@@ -36,6 +36,12 @@
             width: 18px;
             height: 18px;
         }
+        #nested-action {
+            width: max-content;
+            height: auto;
+            margin: 12px 0;
+            padding: 8px 12px;
+        }
     </style>
 </head>
 <body>
@@ -83,18 +89,35 @@
 
     <input id="image-input-action" type="image" alt="Submit image action" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
 
-    <div id="shadow-action-host" role="button" tabindex="0" aria-label="Shadow action"></div>
+    <div id="shadow-action-host">
+        <span id="shadow-slotted-icon">
+            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M5 12h14"></path></svg>
+        </span>
+    </div>
+
+    <div id="nested-action" role="button" tabindex="0" aria-label="Outer card action">
+        <a id="nested-action-link" href="https://example.com/nested-docs">Nested documentation</a>
+    </div>
+
+    <button id="hidden-descendant-action" type="button">
+        <span><span style="display: none">Hidden account token</span></span>
+        <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M8 12h8"></path></svg>
+    </button>
 
     <script>
         window.fixtureActionClickCount = 0;
-        document.getElementById("shadow-action-host").attachShadow({ mode: "open" }).innerHTML = `
-            <style>svg { display: block; width: 18px; height: 18px; }</style>
-            <span><svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M5 12h14"></path></svg></span>
+        const shadowRoot = document.getElementById("shadow-action-host").attachShadow({ mode: "open" });
+        shadowRoot.innerHTML = `
+            <style>button { width: 36px; height: 36px; } ::slotted(*) { display: inline-grid; }</style>
+            <button id="shadow-action-button" type="button" aria-label="Shadow slot action"><slot></slot></button>
         `;
         document.querySelectorAll("button, [role='button'], [role='menuitem'], input[type='image']").forEach(function (action) {
             action.addEventListener("click", function () {
                 window.fixtureActionClickCount += 1;
             });
+        });
+        shadowRoot.getElementById("shadow-action-button").addEventListener("click", function () {
+            window.fixtureActionClickCount += 1;
         });
     </script>
 </body>
