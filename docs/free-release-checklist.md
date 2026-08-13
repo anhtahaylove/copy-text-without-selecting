@@ -65,3 +65,15 @@ git diff --check
 - [ ] No open P0/P1/P2 finding remains.
 - [ ] Manual Chrome smoke passes on the final downloaded artifact.
 - [ ] Publish only after an explicit release instruction.
+
+## Post-publish attestation
+
+- [ ] Confirm **Release Artifact Attestation** passes for the published tag.
+- [ ] Download the published Chrome zip and verify it with GitHub CLI:
+
+  ```powershell
+  gh attestation verify .\copy-text-with-alt-click-chrome-vX.Y.Z.zip --repo anhtahaylove/copy-text-without-selecting
+  ```
+
+- [ ] If the automatic release event did not run, dispatch the workflow
+      manually with the exact published tag.
