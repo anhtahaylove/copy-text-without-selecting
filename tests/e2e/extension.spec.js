@@ -202,6 +202,27 @@ async function altClick(target) {
   await target.click({ modifiers: ["Alt"] });
 }
 
+async function getTextRangePoint(page, selector, phrase) {
+  return page.evaluate(function (input) {
+    const element = document.querySelector(input.selector);
+    const textNode = element && Array.from(element.childNodes).find(function (node) {
+      return node.nodeType === Node.TEXT_NODE && String(node.textContent || "").includes(input.phrase);
+    });
+    if (!textNode) {
+      throw new Error("Text node not found for scope fixture.");
+    }
+    const start = textNode.textContent.indexOf(input.phrase);
+    const range = document.createRange();
+    range.setStart(textNode, start);
+    range.setEnd(textNode, start + input.phrase.length);
+    const rect = range.getBoundingClientRect();
+    return {
+      x: rect.left + (rect.width / 2),
+      y: rect.top + (rect.height / 2),
+    };
+  }, { selector, phrase });
+}
+
 test.beforeAll(async function () {
   try {
     await startFixtureServer();
@@ -460,6 +481,51 @@ test("copies a focused icon-only action through the shortcut path", async functi
   await expect.poll(async function () {
     return readClipboard(page);
   }).toBe("bcd");
+  await page.close();
+});
+
+test("keeps expanded scope through tiny pointer movement and supports contraction", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const point = await getTextRangePoint(page, "#scope-text", "Second target sentence");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.move(point.x + 1, point.y);
+  await page.mouse.click(point.x + 1, point.y);
+  await page.keyboard.up("Alt");
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Second target sentence.");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.wheel(0, 100);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up("Alt");
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("First sentence. Second target sentence. Third sentence.");
+
+  await page.close();
+});
+
+test("resets expanded scope when the pointer moves to a different base target", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const firstPoint = await getTextRangePoint(page, "#scope-text", "Second target sentence");
+  const secondPoint = await getTextRangePoint(page, "#other-scope-text", "Different target second sentence");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(firstPoint.x, firstPoint.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.move(secondPoint.x, secondPoint.y);
+  await page.mouse.click(secondPoint.x, secondPoint.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Different target first sentence. Different target second sentence.");
   await page.close();
 });
 

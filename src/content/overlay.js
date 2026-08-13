@@ -58,27 +58,20 @@ function createContentOverlay(context, targeting, extraction) {
     positionOverlayBox(overlayState.preview, rect, 2);
     overlayState.preview.classList.add("visible");
 
-    const scopeLabels = ["", "Sentence", "Paragraph", "Container"];
-    if (hoverState.scopeLevel > 0 && hoverState.scopeLevel < scopeLabels.length) {
-      overlayState.scopeBadge.textContent = scopeLabels[hoverState.scopeLevel];
-      overlayState.scopeBadge.style.display = "block";
-      const previewTop = parseFloat(overlayState.preview.style.top) || 0;
-      const previewLeft = parseFloat(overlayState.preview.style.left) || 0;
-      overlayState.scopeBadge.style.top = (previewTop - 22) + "px";
-      overlayState.scopeBadge.style.left = previewLeft + "px";
+    const targetBadgeText = getTargetBadgeText(precisionTarget);
+    if (targetBadgeText) {
+      overlayState.targetBadge.textContent = targetBadgeText;
+      overlayState.targetBadge.style.display = "block";
+      positionBadge(overlayState.targetBadge, rect, "left");
     } else {
-      overlayState.scopeBadge.style.display = "none";
+      overlayState.targetBadge.style.display = "none";
     }
 
     const textLength = extraction.getText(precisionTarget).length;
     if (textLength > 3000) {
       overlayState.warnBadge.textContent = "! " + Math.round(textLength / 1000) + "k chars";
       overlayState.warnBadge.style.display = "block";
-      const previewTop = parseFloat(overlayState.preview.style.top) || 0;
-      const previewLeft = parseFloat(overlayState.preview.style.left) || 0;
-      const previewWidth = parseFloat(overlayState.preview.style.width) || 0;
-      overlayState.warnBadge.style.top = (previewTop - 22) + "px";
-      overlayState.warnBadge.style.left = (previewLeft + previewWidth - 80) + "px";
+      positionBadge(overlayState.warnBadge, rect, "right");
     } else {
       overlayState.warnBadge.style.display = "none";
     }
@@ -97,7 +90,7 @@ function createContentOverlay(context, targeting, extraction) {
 
     hoverState.lastRenderedTarget = null;
     context.state.overlayState.preview.classList.remove("visible");
-    context.state.overlayState.scopeBadge.style.display = "none";
+    context.state.overlayState.targetBadge.style.display = "none";
     context.state.overlayState.warnBadge.style.display = "none";
   }
 
@@ -194,6 +187,73 @@ function createContentOverlay(context, targeting, extraction) {
     element.style.height = Math.max(1, Math.round(height)) + "px";
   }
 
+  function positionBadge(element, rect, alignment) {
+    const margin = 8;
+    const gap = 6;
+    const badgeWidth = element.offsetWidth;
+    const badgeHeight = element.offsetHeight;
+    const viewportLeft = window.scrollX + margin;
+    const viewportRight = window.scrollX + window.innerWidth - margin;
+    const viewportTop = window.scrollY + margin;
+    const viewportBottom = window.scrollY + window.innerHeight - margin;
+    const rectLeft = rect.left + window.scrollX;
+    const rectRight = rect.right + window.scrollX;
+    const rectTop = rect.top + window.scrollY;
+    const rectBottom = rect.bottom + window.scrollY;
+
+    let left = alignment === "right" ? rectRight - badgeWidth : rectLeft;
+    left = Math.max(viewportLeft, Math.min(left, viewportRight - badgeWidth));
+
+    let top = rectTop - badgeHeight - gap;
+    if (top < viewportTop) {
+      top = Math.min(rectBottom + gap, viewportBottom - badgeHeight);
+    }
+
+    element.style.left = Math.round(left) + "px";
+    element.style.top = Math.round(Math.max(viewportTop, top)) + "px";
+  }
+
+  function getTargetBadgeText(target) {
+    const scopeLabel = getScopeLabel(hoverState.scopeLevel);
+    if (scopeLabel) {
+      return getTargetTypeLabel(target) + " \u00b7 " + scopeLabel;
+    }
+
+    if (target.kind === "action" && target.labelSource && target.labelSource !== "text") {
+      return context.t("target_type_action", "Action") + " \u00b7 " + truncateBadgeText(target.label, 64);
+    }
+
+    return "";
+  }
+
+  function getTargetTypeLabel(target) {
+    switch (target.kind) {
+      case "action": return context.t("target_type_action", "Action");
+      case "link": return context.t("target_type_link", "Link");
+      case "table": return context.t("target_type_table", "Table");
+      case "code": return context.t("target_type_code", "Code");
+      case "list": return context.t("target_type_list", "List");
+      case "image": return context.t("target_type_image", "Image");
+      case "control": return context.t("target_type_control", "Control");
+      case "selection": return context.t("target_type_selection", "Selection");
+      default: return context.t("target_type_text", "Text");
+    }
+  }
+
+  function getScopeLabel(level) {
+    switch (level) {
+      case targeting.SCOPE_SENTENCE: return context.t("scope_sentence", "Sentence");
+      case targeting.SCOPE_PARAGRAPH: return context.t("scope_paragraph", "Paragraph");
+      case targeting.SCOPE_CONTAINER: return context.t("scope_container", "Container");
+      default: return "";
+    }
+  }
+
+  function truncateBadgeText(value, maxLength) {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    return text.length > maxLength ? text.slice(0, maxLength - 1).trimEnd() + "\u2026" : text;
+  }
+
   function hasRenderableRect(rect) {
     return !!rect && rect.width > 0 && rect.height > 0;
   }
@@ -227,12 +287,12 @@ function createContentOverlay(context, targeting, extraction) {
     style.textContent = [
       ":host { all: initial; }",
       ".layer { position: relative; pointer-events: none; }",
-      ".preview, .feedback, .cursor-toast, .scope-badge, .warn-badge { position: absolute; pointer-events: none; box-sizing: border-box; }",
-      ".preview { z-index: 99998; opacity: 0; border: 2px solid rgba(250, 204, 21, 0.7); border-radius: 6px; background: rgba(250, 204, 21, 0.18); mix-blend-mode: multiply; box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.08), inset 0 0 12px rgba(250, 204, 21, 0.12); transition: opacity 150ms cubic-bezier(0.22, 1, 0.36, 1), top 100ms ease, left 100ms ease, width 100ms ease, height 100ms ease; }",
+      ".preview, .feedback, .cursor-toast, .target-badge, .warn-badge { position: absolute; pointer-events: none; box-sizing: border-box; }",
+      ".preview { z-index: 99998; opacity: 0; border: 2px solid rgba(250, 204, 21, 0.7); border-radius: 6px; background: rgba(250, 204, 21, 0.18); mix-blend-mode: multiply; box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.08), inset 0 0 12px rgba(250, 204, 21, 0.12); transition: opacity 150ms cubic-bezier(0.22, 1, 0.36, 1); }",
       ".preview.visible { opacity: 1; }",
       "@media (prefers-color-scheme: dark) { .preview { border-color: rgba(56, 189, 248, 0.6); background: rgba(56, 189, 248, 0.12); mix-blend-mode: screen; box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.1), inset 0 0 12px rgba(56, 189, 248, 0.08); } }",
-      ".scope-badge { z-index: 100001; display: none; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 10px; font-weight: 700; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; color: #92400e; background: rgba(253, 230, 138, 0.92); border: 1px solid rgba(250, 204, 21, 0.4); padding: 3px 7px; border-radius: 6px; white-space: nowrap; }",
-      "@media (prefers-color-scheme: dark) { .scope-badge { color: #bae6fd; background: rgba(7, 89, 133, 0.88); border-color: rgba(56, 189, 248, 0.35); } }",
+      ".target-badge { z-index: 100001; display: none; max-width: min(320px, calc(100vw - 16px)); overflow: hidden; text-overflow: ellipsis; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 11px; font-weight: 650; line-height: 1.2; color: #78350f; background: rgba(254, 243, 199, 0.96); border: 1px solid rgba(245, 158, 11, 0.42); padding: 4px 7px; border-radius: 6px; white-space: nowrap; }",
+      "@media (prefers-color-scheme: dark) { .target-badge { color: #e0f2fe; background: rgba(12, 74, 110, 0.94); border-color: rgba(56, 189, 248, 0.4); } }",
       ".warn-badge { z-index: 100001; display: none; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 10px; font-weight: 700; line-height: 1; color: #b91c1c; background: rgba(254, 226, 226, 0.94); border: 1px solid rgba(248, 113, 113, 0.4); padding: 3px 7px; border-radius: 6px; white-space: nowrap; }",
       "@media (prefers-color-scheme: dark) { .warn-badge { color: #fca5a5; background: rgba(127, 29, 29, 0.88); border-color: rgba(248, 113, 113, 0.35); } }",
       ".feedback { z-index: 99999; opacity: 0; border: 1px solid rgba(110, 231, 183, 0.96); border-radius: 8px; background: linear-gradient(135deg, rgba(45, 212, 191, 0.22), rgba(34, 197, 94, 0.18)); box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.14), 0 0 28px rgba(45, 212, 191, 0.35); }",
@@ -252,15 +312,15 @@ function createContentOverlay(context, targeting, extraction) {
     const feedback = document.createElement("div");
     feedback.className = "feedback";
 
-    const scopeBadge = document.createElement("div");
-    scopeBadge.className = "scope-badge";
+    const targetBadge = document.createElement("div");
+    targetBadge.className = "target-badge";
 
     const warnBadge = document.createElement("div");
     warnBadge.className = "warn-badge";
 
     layer.appendChild(preview);
     layer.appendChild(feedback);
-    layer.appendChild(scopeBadge);
+    layer.appendChild(targetBadge);
     layer.appendChild(warnBadge);
     shadowRoot.appendChild(style);
     shadowRoot.appendChild(layer);
@@ -272,7 +332,7 @@ function createContentOverlay(context, targeting, extraction) {
       layer: layer,
       preview: preview,
       feedback: feedback,
-      scopeBadge: scopeBadge,
+      targetBadge: targetBadge,
       warnBadge: warnBadge,
     };
 
@@ -291,6 +351,11 @@ function createContentOverlay(context, targeting, extraction) {
     spawnCursorToast,
     showStatusToast,
     positionOverlayBox,
+    positionBadge,
+    getTargetBadgeText,
+    getTargetTypeLabel,
+    getScopeLabel,
+    truncateBadgeText,
     hasRenderableRect,
     restartAnimation,
     getOverlayState,

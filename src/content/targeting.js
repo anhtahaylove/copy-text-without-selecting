@@ -2,7 +2,7 @@ function createContentTargeting(context, dependencies) {
   const utils = context.utils;
   const hoverState = context.state.hoverState;
 
-  const SCOPE_WORD = 0;
+  const SCOPE_EXACT = 0;
   const SCOPE_SENTENCE = 1;
   const SCOPE_PARAGRAPH = 2;
   const SCOPE_CONTAINER = 3;
@@ -38,7 +38,7 @@ function createContentTargeting(context, dependencies) {
   }
 
   function resolveScopedTarget(sourceNode, clientX, clientY, level) {
-    if (level <= SCOPE_WORD) {
+    if (level <= SCOPE_EXACT) {
       return null;
     }
 
@@ -138,10 +138,11 @@ function createContentTargeting(context, dependencies) {
       }
     }
 
+    const requestedScopeLevel = Number.isFinite(localContext.scopeLevel) ? localContext.scopeLevel : hoverState.scopeLevel;
     const scopeClientX = hoverState.scopeAnchorClientX !== null ? hoverState.scopeAnchorClientX : clientX;
     const scopeClientY = hoverState.scopeAnchorClientY !== null ? hoverState.scopeAnchorClientY : clientY;
-    if (hoverState.scopeLevel > SCOPE_WORD) {
-      const scopedTarget = resolveScopedTarget(sourceElement, scopeClientX, scopeClientY, hoverState.scopeLevel);
+    if (requestedScopeLevel > SCOPE_EXACT) {
+      const scopedTarget = resolveScopedTarget(sourceElement, scopeClientX, scopeClientY, requestedScopeLevel);
       if (scopedTarget) {
         return scopedTarget;
       }
@@ -440,6 +441,27 @@ function createContentTargeting(context, dependencies) {
     return settings().avoidEditable && utils.isEditableSurface(getElementNode(node));
   }
 
+  function getPrecisionTargetIdentity(target) {
+    if (!target) {
+      return null;
+    }
+    return target.node || target.element || target.anchor || target.table || target.container || null;
+  }
+
+  function isSamePrecisionTarget(left, right) {
+    return !!left
+      && !!right
+      && left.kind === right.kind
+      && getPrecisionTargetIdentity(left) === getPrecisionTargetIdentity(right);
+  }
+
+  function resetScopeState() {
+    hoverState.scopeLevel = SCOPE_EXACT;
+    hoverState.scopeAnchorClientX = null;
+    hoverState.scopeAnchorClientY = null;
+    hoverState.scopeBaseTarget = null;
+  }
+
   function resolveShortcutTarget() {
     if (hoverState.hoveredElement && hoverState.hoveredElement.isConnected) {
       return hoverState.hoveredElement;
@@ -494,7 +516,7 @@ function createContentTargeting(context, dependencies) {
   }
 
   return {
-    SCOPE_WORD,
+    SCOPE_EXACT,
     SCOPE_SENTENCE,
     SCOPE_PARAGRAPH,
     SCOPE_CONTAINER,
@@ -514,6 +536,9 @@ function createContentTargeting(context, dependencies) {
     getRangeBoundingRect,
     isPointInsideRect,
     shouldIgnoreElement,
+    getPrecisionTargetIdentity,
+    isSamePrecisionTarget,
+    resetScopeState,
     resolveShortcutTarget,
     getDeepActiveElement,
     getNativeCopiedText,
