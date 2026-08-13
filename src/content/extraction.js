@@ -30,7 +30,7 @@ function createContentExtraction(context, targeting) {
         raw = getImageText(extractionContext.element);
         break;
       case "link":
-        raw = formatLinkText(extractionContext.anchor);
+        raw = getLinkCopyPayload(extractionContext.anchor).text;
         break;
       case "action":
         raw = extractionContext.label || "";
@@ -180,17 +180,43 @@ function createContentExtraction(context, targeting) {
   }
 
   function formatLinkText(anchor) {
-    const href = anchor.href;
-    const label = getAccessibleLinkLabel(anchor).text || href;
+    return getLinkCopyPayload(anchor).text;
+  }
+
+  function getLinkCopyPayload(anchor) {
+    const href = anchor && anchor.href ? String(anchor.href) : "";
+    const accessibleLabel = getAccessibleLinkLabel(anchor).text;
+    if (!isSafeLinkHref(href)) {
+      return {
+        text: accessibleLabel,
+        html: escapeHtmlText(accessibleLabel),
+      };
+    }
+
+    const label = accessibleLabel || href;
     switch (getEffectiveLinkCopyFormat()) {
-      case "text": return label;
-      case "url": return href;
-      default: return "[" + escapeMarkdownLabel(label) + "](" + escapeMarkdownDestination(href) + ")";
+      case "text":
+        return { text: label, html: escapeHtmlText(label) };
+      case "url":
+        return { text: href, html: escapeHtmlText(href) };
+      default:
+        return {
+          text: "[" + escapeMarkdownLabel(label) + "](" + escapeMarkdownDestination(href) + ")",
+          html: '<a href="' + escapeHtmlAttribute(href) + '">' + escapeHtmlText(label) + "</a>",
+        };
+    }
+  }
+
+  function isSafeLinkHref(href) {
+    try {
+      return ["http:", "https:", "mailto:", "tel:"].includes(new URL(href, document.baseURI).protocol.toLowerCase());
+    } catch (error) {
+      return false;
     }
   }
 
   function escapeMarkdownLabel(value) {
-    return String(value || "").replace(/\\/g, "\\\\").replace(/([\[\]])/g, "\\$1");
+    return String(value || "").replace(/([\\`*_[\]{}<>#!|~])/g, "\\$1");
   }
 
   function escapeMarkdownDestination(value) {
@@ -390,12 +416,7 @@ function createContentExtraction(context, targeting) {
         return escapeHtmlText(getText(target));
       }
       if (extractionContext && extractionContext.kind === "link") {
-        if (getEffectiveLinkCopyFormat() === "markdown") {
-          const href = extractionContext.anchor.href;
-          const label = getAccessibleLinkLabel(extractionContext.anchor).text || href;
-          return '<a href="' + escapeHtmlAttribute(href) + '">' + escapeHtmlText(label) + "</a>";
-        }
-        return escapeHtmlText(getText(target));
+        return getLinkCopyPayload(extractionContext.anchor).html;
       }
 
       if (target.range) {
@@ -469,6 +490,8 @@ function createContentExtraction(context, targeting) {
     getAccessibleLinkLabel,
     getEffectiveLinkCopyFormat,
     formatLinkText,
+    getLinkCopyPayload,
+    isSafeLinkHref,
     escapeMarkdownLabel,
     escapeMarkdownDestination,
     getCopyMetadata,

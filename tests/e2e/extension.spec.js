@@ -482,14 +482,16 @@ test("copies regular, icon-only, and unlabeled links in every configured format"
       regular: "[Example search result](https://example.com/search-result)",
       icon: "[Open documentation](https://example.com/icon-docs)",
       unlabeled: "[https://example.com/url-only](https://example.com/url-only)",
-      escaped: "[Docs \\[Beta\\] (Guide)](https://example.com/docs\\(v2\\))",
+      escaped: "[Docs \\[Beta\\] \\*Guide\\* \\_v2\\_ \\`code\\` \\<raw\\>](https://example.com/docs\\(v2\\))",
+      unsafe: "Danger *link* _under_ `code` <raw>",
     },
     {
       format: "text",
       regular: "Example search result",
       icon: "Open documentation",
       unlabeled: "https://example.com/url-only",
-      escaped: "Docs [Beta] (Guide)",
+      escaped: "Docs [Beta] *Guide* _v2_ `code` <raw>",
+      unsafe: "Danger *link* _under_ `code` <raw>",
     },
     {
       format: "url",
@@ -497,6 +499,7 @@ test("copies regular, icon-only, and unlabeled links in every configured format"
       icon: "https://example.com/icon-docs",
       unlabeled: "https://example.com/url-only",
       escaped: "https://example.com/docs(v2)",
+      unsafe: "Danger *link* _under_ `code` <raw>",
     },
   ];
 
@@ -536,6 +539,19 @@ test("copies regular, icon-only, and unlabeled links in every configured format"
       await expect.poll(async function () {
         return readClipboard(page);
       }).toBe(item.escaped);
+
+      await altClick(page.locator("#unsafe-script-link"));
+      await expect.poll(async function () {
+        return readClipboard(page);
+      }).toBe(item.unsafe);
+      expect(await readClipboardHtml(page)).toBe("Danger *link* _under_ `code` &lt;raw&gt;");
+      expect(await page.evaluate(function () { return window.fixtureUnsafeLinkRan; })).toBe(false);
+
+      await altClick(page.locator("#unsafe-data-link"));
+      await expect.poll(async function () {
+        return readClipboard(page);
+      }).toBe("Data link");
+      expect(await readClipboardHtml(page)).toBe("Data link");
 
       const latestEntry = (await readHistoryEntries())[0];
       expect(latestEntry.targetKind).toBe("link");

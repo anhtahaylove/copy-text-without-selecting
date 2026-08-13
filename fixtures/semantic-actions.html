@@ -123,11 +123,14 @@
         <a id="url-only-link" href="https://example.com/url-only">
             <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M8 12h8"></path></svg>
         </a>
-        <a id="markdown-special-link" href="https://example.com/docs(v2)">Docs [Beta] (Guide)</a>
+        <a id="markdown-special-link" href="https://example.com/docs(v2)">Docs [Beta] *Guide* _v2_ `code` &lt;raw&gt;</a>
+        <a id="unsafe-script-link" href="javascript:window.fixtureUnsafeLinkRan = true">Danger *link* _under_ `code` &lt;raw&gt;</a>
+        <a id="unsafe-data-link" href="data:text/html,unsafe">Data link</a>
     </p>
 
     <script>
         window.fixtureActionClickCount = 0;
+        window.fixtureUnsafeLinkRan = false;
         const shadowRoot = document.getElementById("shadow-action-host").attachShadow({ mode: "open" });
         shadowRoot.innerHTML = `
             <style>button { width: 36px; height: 36px; } ::slotted(*) { display: inline-grid; }</style>
