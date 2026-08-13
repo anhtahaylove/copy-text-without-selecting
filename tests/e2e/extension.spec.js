@@ -120,7 +120,12 @@ async function closeExtensionContext() {
   } finally {
     context = null;
     if (userDataDir) {
-      fs.rmSync(userDataDir, { recursive: true, force: true });
+      fs.rmSync(userDataDir, {
+        recursive: true,
+        force: true,
+        maxRetries: 10,
+        retryDelay: 100,
+      });
       userDataDir = null;
     }
   }
