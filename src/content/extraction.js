@@ -168,24 +168,7 @@ function createContentExtraction(context, targeting) {
       return { text: title, source: "title" };
     }
 
-    const descendantAlternative = getDescendantAlternativeText(element);
-    if (descendantAlternative) {
-      return { text: descendantAlternative, source: "alt" };
-    }
-
     return { text: "", source: "" };
-  }
-
-  function getDescendantAlternativeText(element) {
-    if (!element || typeof element.querySelectorAll != "function") {
-      return "";
-    }
-    const text = Array.from(element.querySelectorAll("img[alt], input[type='image'][alt]")).filter(function (candidate) {
-      return targeting.isNodeVisible(candidate);
-    }).map(function (candidate) {
-      return candidate.getAttribute("alt") || "";
-    }).join(" ");
-    return normalizeAccessibleLabel(text);
   }
 
   function normalizeAccessibleLabel(value) {
@@ -431,7 +414,6 @@ function createContentExtraction(context, targeting) {
     getAccessibleElementLabel,
     getClosestMatchingElement,
     getComposedParentElement,
-    getDescendantAlternativeText,
     normalizeAccessibleLabel,
     getExtractionNode,
     getImageText,

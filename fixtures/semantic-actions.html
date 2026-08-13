@@ -101,6 +101,9 @@
     <div id="shadow-scoped-label-host"></div>
     <div id="shadow-input-host"></div>
     <div id="shadow-image-action-host"><img alt="Slotted image action" src="data:image/gif;base64,R0lGODlhAQABAAAAACw="></div>
+    <div id="shadow-unassigned-image-action-host" role="button" tabindex="0">
+        <img alt="UNRENDERED SECRET" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
+    </div>
     <div id="shadow-editor-host"></div>
     <div id="shadow-range-host"></div>
 
@@ -144,6 +147,9 @@
 
         const imageActionRoot = document.getElementById("shadow-image-action-host").attachShadow({ mode: "open" });
         imageActionRoot.innerHTML = `<button id="shadow-image-action-button" type="button"><slot></slot></button>`;
+
+        const unassignedImageActionRoot = document.getElementById("shadow-unassigned-image-action-host").attachShadow({ mode: "open" });
+        unassignedImageActionRoot.innerHTML = `<svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle></svg>`;
 
         const editorRoot = document.getElementById("shadow-editor-host").attachShadow({ mode: "open" });
         editorRoot.innerHTML = `<div id="shadow-editor" contenteditable="true">Shadow editable secret</div>`;

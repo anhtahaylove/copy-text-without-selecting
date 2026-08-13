@@ -391,6 +391,11 @@ test("copies icon-only semantic actions without leaking ancestor text", async fu
   await expect.poll(async function () {
     return readClipboard(page);
   }).toBe("safe-mode-seed");
+
+  await altClick(page.locator("#shadow-unassigned-image-action-host").locator("svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("safe-mode-seed");
   expect((await readHistoryEntries()).length).toBe(historyBeforeUnlabelledAction.length);
 
   await page.close();
