@@ -34,5 +34,14 @@
         <p id="abbreviation-text">Dr. <span id="abbreviation-target">Smith wrote this sentence</span>. Version 2.5 remains stable. Visit example.com/docs.</p>
         <p id="hidden-sentence-text">Visible <span style="display: none">SECRET</span><strong>sentence target</strong>. Next sentence.</p>
     </section>
+    <div id="shadow-scope-host">
+        <span id="shadow-scope-target" slot="visible">Visible target</span>
+        <span> SECRET.</span>
+    </div>
+    <script>
+        document.getElementById("shadow-scope-host").attachShadow({ mode: "open" }).innerHTML = `
+            <section><p><slot name="visible"></slot> sentence.</p><p>Rendered sibling.</p></section>
+        `;
+    </script>
 </body>
 </html>

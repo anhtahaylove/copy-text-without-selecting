@@ -102,7 +102,9 @@ function createContentEvents(context) {
 
     helpers.syncPointerState(event);
     hoverState.hoveredElement = helpers.getElementNode(event.target);
-    hoverState.previewModifierActive = utils.isPrimaryModifierPressed(context.state.settings.metaKey, event);
+    if (utils.isPrimaryModifierPressed(context.state.settings.metaKey, event)) {
+      hoverState.previewModifierActive = true;
+    }
 
     if (helpers.shouldShowPreview()) {
       helpers.schedulePreviewUpdate();

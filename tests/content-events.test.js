@@ -75,6 +75,35 @@ test("modifier release and leaving the document reset expanded scope", function 
   assert.equal(hoverState.hoveredElement, null);
 });
 
+test("mouseover without modifier flags does not clear an active scoped gesture", function () {
+  const hoverState = {
+    previewModifierActive: true,
+    hoveredElement: null,
+  };
+  const events = createContentEvents({
+    utils: {
+      isPrimaryModifierPressed: function () { return false; },
+    },
+    state: {
+      settings: { metaKey: "Alt" },
+      hoverState,
+    },
+    helpers: {
+      syncPointerState: function () {},
+      getElementNode: function (node) { return node; },
+      shouldShowPreview: function () { return true; },
+      schedulePreviewUpdate: function () {},
+    },
+    isExtensionUsable: function () { return true; },
+  });
+
+  const nextTarget = { id: "scroll-retarget" };
+  events.handleMouseOver({ target: nextTarget, altKey: false });
+
+  assert.equal(hoverState.previewModifierActive, true);
+  assert.equal(hoverState.hoveredElement, nextTarget);
+});
+
 test("wheel at the maximum scope does not consume page scrolling", function () {
   let prevented = 0;
   const events = createContentEvents({
