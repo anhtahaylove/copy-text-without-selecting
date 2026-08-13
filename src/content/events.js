@@ -225,7 +225,7 @@ function createContentEvents(context) {
 
     const currentTarget = hoverState.scopeLevel === helpers.SCOPE_EXACT
       ? baseTarget
-      : helpers.resolveScopedTarget(hoverState.hoveredElement, anchorClientX, anchorClientY, hoverState.scopeLevel);
+      : helpers.resolveScopedTarget(hoverState.hoveredElement, anchorClientX, anchorClientY, hoverState.scopeLevel, baseTarget);
     if (!currentTarget) {
       return;
     }
@@ -235,7 +235,7 @@ function createContentEvents(context) {
     while (nextLevel >= helpers.SCOPE_EXACT && nextLevel <= helpers.SCOPE_CONTAINER) {
       const candidate = nextLevel === helpers.SCOPE_EXACT
         ? baseTarget
-        : helpers.resolveScopedTarget(hoverState.hoveredElement, anchorClientX, anchorClientY, nextLevel);
+        : helpers.resolveScopedTarget(hoverState.hoveredElement, anchorClientX, anchorClientY, nextLevel, baseTarget);
       const containsBase = nextLevel === helpers.SCOPE_EXACT || (candidate && helpers.doesTargetContain(candidate, baseTarget));
       const isMonotonic = direction > 0
         ? candidate && helpers.doesTargetContain(candidate, currentTarget)

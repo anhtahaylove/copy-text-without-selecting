@@ -23,3 +23,17 @@ test("sentence segmentation preserves abbreviations, decimals, and URLs", functi
     "Visit example.com/docs.",
   ]);
 });
+
+test("fallback sentence segmentation handles closing punctuation", function () {
+  const text = '"First sentence." Next sentence. [Third sentence!] Last sentence?';
+  const segments = createTargeting().getSentenceSegments(text, true).map(function (segment) {
+    return text.slice(segment.start, segment.end).trim();
+  });
+
+  assert.deepEqual(segments, [
+    '"First sentence."',
+    "Next sentence.",
+    "[Third sentence!]",
+    "Last sentence?",
+  ]);
+});

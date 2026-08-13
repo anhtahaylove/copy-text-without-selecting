@@ -356,6 +356,9 @@ function createContentExtraction(context, targeting) {
       if (extractionContext && extractionContext.kind === "action") {
         return escapeHtmlText(extractionContext.label || "");
       }
+      if (extractionContext && extractionContext.kind === "scope") {
+        return escapeHtmlText(getText(target));
+      }
 
       if (target.range) {
         const fragment = target.range.cloneContents();
