@@ -18,7 +18,7 @@
     "message": "Hover preview"
   },
   "preview_enabled_help": {
-    "message": "Show the dashed outline overlay while holding the copy modifier."
+    "message": "Giữ phím copy để xem trước. Cuộn khi khung đang hiển thị để mở rộng hoặc thu hẹp vùng copy."
   },
   "avoid_editable_label": {
     "message": "Skip editable apps"
@@ -63,7 +63,7 @@
     "message": "Hover preview"
   },
   "popup_preview_hint": {
-    "message": "Show the target overlay while the modifier key is held."
+    "message": "Giữ phím copy để xem trước; cuộn để đổi phạm vi."
   },
   "popup_safe_label": {
     "message": "Skip editable apps"

@@ -65,19 +65,28 @@ function createContentEvents(context) {
     }
 
     if (!utils.isPrimaryModifierPressed(context.state.settings.metaKey, event)) {
-      hoverState.pointerClientX = event.clientX;
-      hoverState.pointerClientY = event.clientY;
-      hoverState.pointerPageX = event.pageX;
-      hoverState.pointerPageY = event.pageY;
+      helpers.syncPointerState(event);
       hoverState.previewModifierActive = false;
+      helpers.resetScopeState();
       return;
     }
 
     helpers.syncPointerState(event);
     const composedTarget = event.composedPath ? event.composedPath()[0] : event.target;
-    hoverState.hoveredElement = helpers.getElementNode(helpers.pierceShadowDOM(composedTarget, event.clientX, event.clientY));
+    const nextHoveredElement = helpers.getElementNode(helpers.pierceShadowDOM(composedTarget, event.clientX, event.clientY));
+    if (hoverState.scopeLevel > helpers.SCOPE_EXACT && hoverState.scopeBaseTarget) {
+      const nextBaseTarget = helpers.resolvePrecisionTarget(nextHoveredElement, {
+        clientX: event.clientX,
+        clientY: event.clientY,
+        preferSelection: true,
+        scopeLevel: helpers.SCOPE_EXACT,
+      });
+      if (!helpers.isSamePrecisionTarget(hoverState.scopeBaseTarget, nextBaseTarget)) {
+        helpers.resetScopeState();
+      }
+    }
+    hoverState.hoveredElement = nextHoveredElement;
     hoverState.previewModifierActive = true;
-    hoverState.scopeLevel = 0;
 
     if (helpers.shouldShowPreview()) {
       helpers.schedulePreviewUpdate();
@@ -107,6 +116,7 @@ function createContentEvents(context) {
 
     if (!event.relatedTarget) {
       hoverState.hoveredElement = null;
+      helpers.resetScopeState();
       helpers.hidePreview();
       return;
     }
@@ -153,7 +163,7 @@ function createContentEvents(context) {
     hoverState.previewModifierActive = utils.isPrimaryModifierPressed(context.state.settings.metaKey, event);
 
     if (!hoverState.previewModifierActive) {
-      hoverState.scopeLevel = 0;
+      helpers.resetScopeState();
     }
 
     if (!hoverState.hoveredElement && hoverState.pointerClientX !== null && hoverState.pointerClientY !== null) {
@@ -197,17 +207,45 @@ function createContentEvents(context) {
       return;
     }
 
-    event.preventDefault();
-
     const delta = event.deltaY < 0 ? 1 : -1;
-    const nextLevel = Math.max(0, Math.min(3, hoverState.scopeLevel + delta));
+    const nextLevel = Math.max(helpers.SCOPE_EXACT, Math.min(helpers.SCOPE_CONTAINER, hoverState.scopeLevel + delta));
     if (nextLevel === hoverState.scopeLevel) {
       return;
     }
 
+    if (nextLevel > helpers.SCOPE_EXACT) {
+      const anchorClientX = hoverState.scopeAnchorClientX !== null ? hoverState.scopeAnchorClientX : hoverState.pointerClientX;
+      const anchorClientY = hoverState.scopeAnchorClientY !== null ? hoverState.scopeAnchorClientY : hoverState.pointerClientY;
+      const scopedTarget = helpers.resolveScopedTarget(hoverState.hoveredElement, anchorClientX, anchorClientY, nextLevel);
+      if (!scopedTarget) {
+        return;
+      }
+
+      if (hoverState.scopeLevel === helpers.SCOPE_EXACT) {
+        const baseTarget = helpers.resolvePrecisionTarget(hoverState.hoveredElement, {
+          clientX: hoverState.pointerClientX,
+          clientY: hoverState.pointerClientY,
+          preferSelection: true,
+          scopeLevel: helpers.SCOPE_EXACT,
+        });
+        if (!baseTarget) {
+          return;
+        }
+        hoverState.scopeBaseTarget = baseTarget;
+        hoverState.scopeAnchorClientX = hoverState.pointerClientX;
+        hoverState.scopeAnchorClientY = hoverState.pointerClientY;
+      }
+    }
+
+    event.preventDefault();
+
+    if (nextLevel === helpers.SCOPE_EXACT) {
+      helpers.resetScopeState();
+      helpers.schedulePreviewUpdate();
+      return;
+    }
+
     hoverState.scopeLevel = nextLevel;
-    hoverState.scopeAnchorClientX = hoverState.pointerClientX;
-    hoverState.scopeAnchorClientY = hoverState.pointerClientY;
     helpers.schedulePreviewUpdate();
   }
 

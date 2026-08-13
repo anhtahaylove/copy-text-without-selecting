@@ -19,9 +19,7 @@ function createContentClipboard(context, targeting, extraction, overlay, persist
     const result = "copied";
     await copy(text, htmlContent);
 
-    hoverState.scopeLevel = 0;
-    hoverState.scopeAnchorClientX = null;
-    hoverState.scopeAnchorClientY = null;
+    targeting.resetScopeState();
 
     overlay.showCopyFeedback(precisionTarget.rect, result);
     const analyticsEvents = [{
