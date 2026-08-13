@@ -104,6 +104,7 @@ test("wheel at the maximum scope does not consume page scrolling", function () {
 
 test("wheel skips scope levels that would shrink the exact target", function () {
   let prevented = 0;
+  const receivedBaseTargets = [];
   const baseTarget = { id: "base" };
   const sentenceTarget = { id: "sentence" };
   const paragraphTarget = { id: "paragraph" };
@@ -125,7 +126,8 @@ test("wheel skips scope levels that would shrink the exact target", function () 
       SCOPE_CONTAINER: 3,
       shouldShowPreview: function () { return true; },
       resolvePrecisionTarget: function () { return baseTarget; },
-      resolveScopedTarget: function (_element, _x, _y, level) {
+      resolveScopedTarget: function (_element, _x, _y, level, anchoredBaseTarget) {
+        receivedBaseTargets.push(anchoredBaseTarget);
         return level === 1 ? sentenceTarget : paragraphTarget;
       },
       doesTargetContain: function (container, inner) {
@@ -144,4 +146,5 @@ test("wheel skips scope levels that would shrink the exact target", function () 
   assert.equal(prevented, 1);
   assert.equal(hoverState.scopeLevel, 2);
   assert.equal(hoverState.scopeBaseTarget, baseTarget);
+  assert.deepEqual(receivedBaseTargets, [baseTarget, baseTarget]);
 });

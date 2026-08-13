@@ -605,6 +605,23 @@ test("keeps abbreviations, decimals, and URLs inside their sentences", async fun
   await page.close();
 });
 
+test("sentence scope excludes hidden descendants from plain and rich clipboard", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const point = await getTextRangePoint(page, "#hidden-sentence-text strong", "sentence target");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up("Alt");
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Visible sentence target.");
+  expect(await readClipboardHtml(page)).toBe("Visible sentence target.");
+  await page.close();
+});
+
 test("never shrinks a whole-text exact target when expanding scope", async function () {
   const { page } = await openPage("fixtures/scope-preview.html");
   const point = await getTextRangePoint(page, "#scope-text", "Second target sentence");
