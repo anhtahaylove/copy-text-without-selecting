@@ -187,6 +187,17 @@ async function readClipboard(page) {
   });
 }
 
+async function readClipboardHtml(page) {
+  return page.evaluate(async function () {
+    const items = await navigator.clipboard.read();
+    const item = items.find(function (candidate) {
+      return candidate.types.includes("text/html");
+    });
+    if (!item) return "";
+    return (await item.getType("text/html")).text();
+  });
+}
+
 async function altClick(target) {
   await target.click({ modifiers: ["Alt"] });
 }
@@ -278,6 +289,7 @@ test("copies icon-only semantic actions without leaking ancestor text", async fu
   await expect.poll(async function () {
     return readClipboard(page);
   }).toBe("About this result");
+  expect(await readClipboardHtml(page)).toBe("About this result");
   expect(await page.evaluate(function () {
     return window.fixtureActionClickCount;
   })).toBe(0);
@@ -296,6 +308,29 @@ test("copies icon-only semantic actions without leaking ancestor text", async fu
   await expect.poll(async function () {
     return readClipboard(page);
   }).toBe("Role menu item action");
+
+  await altClick(page.locator("#image-alt-action img"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Download report");
+
+  await altClick(page.locator("#image-alt-link img"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("[Documentation image](https://example.com/image-docs)");
+
+  await altClick(page.locator("#image-input-action"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Submit image action");
+
+  await altClick(page.locator("#shadow-action-host svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Shadow action");
+  expect(await page.evaluate(function () {
+    return window.fixtureActionClickCount;
+  })).toBe(0);
 
   await altClick(page.locator("#result-link"));
   await expect.poll(async function () {
@@ -337,6 +372,25 @@ test("copies a focused icon-only action through the shortcut path", async functi
   await expect.poll(async function () {
     return readClipboard(page);
   }).toBe("About this result");
+
+  await page.locator("#shadow-action-host").focus();
+  const shadowPopupPage = await openExtensionPage("popup.html");
+  await shadowPopupPage.evaluate(async function () {
+    const tabs = await chrome.tabs.query({ lastFocusedWindow: true });
+    const targetTab = tabs.find(function (tab) {
+      return typeof tab.url === "string" && tab.url.includes("/fixtures/semantic-actions.html");
+    });
+    if (!targetTab || !targetTab.id) {
+      throw new Error("Fixture tab not found for shadow shortcut test.");
+    }
+    await chrome.tabs.sendMessage(targetTab.id, {
+      type: "COPY_TEXT_WITHOUT_SELECTING_SHORTCUT",
+    });
+  });
+  await shadowPopupPage.close();
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Shadow action");
   await page.close();
 });
 

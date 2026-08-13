@@ -32,7 +32,7 @@
             border-radius: 999px;
             background: white;
         }
-        svg {
+        svg, img, input[type="image"] {
             width: 18px;
             height: 18px;
         }
@@ -62,6 +62,7 @@
 
     <button id="unlabelled-action" type="button">
         <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="5"></circle></svg>
+        <img aria-hidden="true" alt="Decorative icon" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
     </button>
 
     <div id="role-button-action" role="button" tabindex="0" aria-label="Role button action">
@@ -72,9 +73,25 @@
         <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M12 6v12"></path></svg>
     </div>
 
+    <button id="image-alt-action" type="button">
+        <img alt="Download report" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
+    </button>
+
+    <a id="image-alt-link" href="https://example.com/image-docs">
+        <img alt="Documentation image" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
+    </a>
+
+    <input id="image-input-action" type="image" alt="Submit image action" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
+
+    <div id="shadow-action-host" role="button" tabindex="0" aria-label="Shadow action"></div>
+
     <script>
         window.fixtureActionClickCount = 0;
-        document.querySelectorAll("button, [role='button'], [role='menuitem']").forEach(function (action) {
+        document.getElementById("shadow-action-host").attachShadow({ mode: "open" }).innerHTML = `
+            <style>svg { display: block; width: 18px; height: 18px; }</style>
+            <span><svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M5 12h14"></path></svg></span>
+        `;
+        document.querySelectorAll("button, [role='button'], [role='menuitem'], input[type='image']").forEach(function (action) {
             action.addEventListener("click", function () {
                 window.fixtureActionClickCount += 1;
             });

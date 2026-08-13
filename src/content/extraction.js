@@ -30,7 +30,7 @@ function createContentExtraction(context, targeting) {
         raw = getImageText(extractionContext.element);
         break;
       case "link":
-        raw = "[" + (collectVisibleText(extractionContext.anchor).trim() || extractionContext.anchor.href) + "](" + extractionContext.anchor.href + ")";
+        raw = "[" + (getAccessibleElementLabel(extractionContext.anchor).text || extractionContext.anchor.href) + "](" + extractionContext.anchor.href + ")";
         break;
       case "action":
         raw = extractionContext.label || "";
@@ -60,7 +60,7 @@ function createContentExtraction(context, targeting) {
       return null;
     }
 
-    const action = typeof element.closest == "function" ? element.closest(ACTION_SELECTOR) : null;
+    const action = getClosestMatchingElement(element, ACTION_SELECTOR);
     if (action) {
       const accessibleLabel = getAccessibleActionLabel(action);
       return {
@@ -71,12 +71,12 @@ function createContentExtraction(context, targeting) {
       };
     }
 
-    const control = typeof element.closest == "function" ? element.closest(CONTROL_SELECTOR) : null;
+    const control = getClosestMatchingElement(element, CONTROL_SELECTOR);
     if (control) {
       return { kind: "control", element: control };
     }
 
-    const anchor = typeof element.closest == "function" ? element.closest(LINK_SELECTOR) : null;
+    const anchor = getClosestMatchingElement(element, LINK_SELECTOR);
     if (anchor) {
       return { kind: "link", anchor: anchor };
     }
@@ -85,17 +85,17 @@ function createContentExtraction(context, targeting) {
       return { kind: "image", element: element };
     }
 
-    const table = typeof element.closest == "function" ? element.closest("table") : null;
+    const table = getClosestMatchingElement(element, "table");
     if (table) {
       return { kind: "table", table: table };
     }
 
-    const codeContainer = typeof element.closest == "function" ? element.closest("pre, code") : null;
+    const codeContainer = getClosestMatchingElement(element, "pre, code");
     if (codeContainer) {
       return { kind: "code", container: codeContainer };
     }
 
-    const listContainer = typeof element.closest == "function" ? element.closest("ul, ol") : null;
+    const listContainer = getClosestMatchingElement(element, "ul, ol");
     if (listContainer) {
       return { kind: "list", container: listContainer };
     }
@@ -105,13 +105,36 @@ function createContentExtraction(context, targeting) {
 
   function getClosestSemanticElement(node) {
     const element = targeting.getElementNode(node);
-    if (!element || typeof element.closest != "function") {
+    return getClosestMatchingElement(element, ACTION_SELECTOR + ", " + CONTROL_SELECTOR + ", " + LINK_SELECTOR);
+  }
+
+  function getClosestMatchingElement(element, selector) {
+    let current = element;
+    while (current) {
+      if (typeof current.matches == "function" && current.matches(selector)) {
+        return current;
+      }
+      current = getComposedParentElement(current);
+    }
+    return null;
+  }
+
+  function getComposedParentElement(element) {
+    if (!element) {
       return null;
     }
-    return element.closest(ACTION_SELECTOR + ", " + CONTROL_SELECTOR + ", " + LINK_SELECTOR);
+    if (element.parentElement) {
+      return element.parentElement;
+    }
+    const root = typeof element.getRootNode == "function" ? element.getRootNode() : null;
+    return root && root.host && root.host.nodeType == Node.ELEMENT_NODE ? root.host : null;
   }
 
   function getAccessibleActionLabel(element) {
+    return getAccessibleElementLabel(element);
+  }
+
+  function getAccessibleElementLabel(element) {
     if (!element) {
       return { text: "", source: "" };
     }
@@ -119,7 +142,9 @@ function createContentExtraction(context, targeting) {
     const labelledBy = String(element.getAttribute("aria-labelledby") || "").trim();
     if (labelledBy) {
       const labelledText = labelledBy.split(/\s+/).map(function (id) {
-        const labelledElement = element.ownerDocument && element.ownerDocument.getElementById(id);
+        const root = typeof element.getRootNode == "function" ? element.getRootNode() : null;
+        const labelledElement = (root && typeof root.getElementById == "function" && root.getElementById(id))
+          || (element.ownerDocument && element.ownerDocument.getElementById(id));
         return labelledElement ? labelledElement.textContent : "";
       }).join(" ");
       const normalizedLabelledText = normalizeAccessibleLabel(labelledText);
@@ -143,7 +168,24 @@ function createContentExtraction(context, targeting) {
       return { text: title, source: "title" };
     }
 
+    const descendantAlternative = getDescendantAlternativeText(element);
+    if (descendantAlternative) {
+      return { text: descendantAlternative, source: "alt" };
+    }
+
     return { text: "", source: "" };
+  }
+
+  function getDescendantAlternativeText(element) {
+    if (!element || typeof element.querySelectorAll != "function") {
+      return "";
+    }
+    const text = Array.from(element.querySelectorAll("img[alt], input[type='image'][alt]")).filter(function (candidate) {
+      return targeting.isNodeVisible(candidate);
+    }).map(function (candidate) {
+      return candidate.getAttribute("alt") || "";
+    }).join(" ");
+    return normalizeAccessibleLabel(text);
   }
 
   function normalizeAccessibleLabel(value) {
@@ -271,6 +313,9 @@ function createContentExtraction(context, targeting) {
 
     switch (node.nodeName.toUpperCase()) {
       case "INPUT":
+        if (String(node.type || "").toLowerCase() === "image") {
+          return node.getAttribute("alt") || node.value || node.getAttribute("title") || "";
+        }
       case "TEXTAREA":
         return node.value || "";
       case "SELECT":
@@ -290,6 +335,11 @@ function createContentExtraction(context, targeting) {
     }
 
     try {
+      const extractionContext = resolveExtractionContext(target);
+      if (extractionContext && extractionContext.kind === "action") {
+        return escapeHtmlText(extractionContext.label || "");
+      }
+
       if (target.range) {
         const fragment = target.range.cloneContents();
         const wrapper = document.createElement("div");
@@ -351,6 +401,10 @@ function createContentExtraction(context, targeting) {
     resolveExtractionContext,
     getClosestSemanticElement,
     getAccessibleActionLabel,
+    getAccessibleElementLabel,
+    getClosestMatchingElement,
+    getComposedParentElement,
+    getDescendantAlternativeText,
     normalizeAccessibleLabel,
     getExtractionNode,
     getImageText,
