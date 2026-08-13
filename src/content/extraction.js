@@ -185,8 +185,16 @@ function createContentExtraction(context, targeting) {
     switch (getEffectiveLinkCopyFormat()) {
       case "text": return label;
       case "url": return href;
-      default: return "[" + label + "](" + href + ")";
+      default: return "[" + escapeMarkdownLabel(label) + "](" + escapeMarkdownDestination(href) + ")";
     }
+  }
+
+  function escapeMarkdownLabel(value) {
+    return String(value || "").replace(/\\/g, "\\\\").replace(/([\[\]])/g, "\\$1");
+  }
+
+  function escapeMarkdownDestination(value) {
+    return String(value || "").replace(/\\/g, "\\\\").replace(/([()])/g, "\\$1");
   }
 
   function getCopyMetadata(target) {
@@ -381,7 +389,12 @@ function createContentExtraction(context, targeting) {
       if (extractionContext && extractionContext.kind === "scope") {
         return escapeHtmlText(getText(target));
       }
-      if (extractionContext && extractionContext.kind === "link" && getEffectiveLinkCopyFormat() !== "markdown") {
+      if (extractionContext && extractionContext.kind === "link") {
+        if (getEffectiveLinkCopyFormat() === "markdown") {
+          const href = extractionContext.anchor.href;
+          const label = getAccessibleLinkLabel(extractionContext.anchor).text || href;
+          return '<a href="' + escapeHtmlAttribute(href) + '">' + escapeHtmlText(label) + "</a>";
+        }
         return escapeHtmlText(getText(target));
       }
 
@@ -427,6 +440,10 @@ function createContentExtraction(context, targeting) {
       .replace(/>/g, "&gt;");
   }
 
+  function escapeHtmlAttribute(text) {
+    return escapeHtmlText(text).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
   function sanitizeHtml(html) {
     if (!html) {
       return "";
@@ -452,6 +469,8 @@ function createContentExtraction(context, targeting) {
     getAccessibleLinkLabel,
     getEffectiveLinkCopyFormat,
     formatLinkText,
+    escapeMarkdownLabel,
+    escapeMarkdownDestination,
     getCopyMetadata,
     normalizeAccessibleLabel,
     getExtractionNode,
@@ -468,6 +487,7 @@ function createContentExtraction(context, targeting) {
     serializeNodeChildrenToHtml,
     serializeNodeToHtml,
     escapeHtmlText,
+    escapeHtmlAttribute,
     sanitizeHtml,
   };
 }
