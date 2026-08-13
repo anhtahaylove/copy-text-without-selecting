@@ -13,10 +13,18 @@ to the Chrome Web Store, so Chrome must load it as an unpacked extension.
    ```
 
    The result must match the hash in `SHA256SUMS.txt`.
-3. Extract the zip to a permanent folder that will not be moved or deleted.
-4. Open `chrome://extensions` in Chrome.
-5. Enable **Developer mode**.
-6. Select **Load unpacked** and choose the extracted folder containing
+3. If GitHub CLI is installed, also verify the GitHub artifact attestation:
+
+   ```powershell
+   gh attestation verify .\copy-text-with-alt-click-chrome-vX.Y.Z.zip --repo anhtahaylove/copy-text-without-selecting
+   ```
+
+   This confirms that the published zip matches the checksum-verified artifact
+   attested by this repository's GitHub Actions workflow.
+4. Extract the zip to a permanent folder that will not be moved or deleted.
+5. Open `chrome://extensions` in Chrome.
+6. Enable **Developer mode**.
+7. Select **Load unpacked** and choose the extracted folder containing
    `manifest.json`.
 
 Chrome may periodically show a developer-mode warning because the extension is
