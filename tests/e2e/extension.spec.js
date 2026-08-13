@@ -570,6 +570,56 @@ test("resets expanded scope when the pointer moves to a different base target", 
   await page.close();
 });
 
+test("expands scope across inline markup without shrinking paragraph or container", async function () {
+  const { page } = await openPage("fixtures/scope-preview.html");
+  const inlinePoint = await getTextRangePoint(page, "#inline-scope-text strong", "bold target words");
+  const trailingPoint = await getTextRangePoint(page, "#inline-scope-text", "ending here");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(inlinePoint.x, inlinePoint.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.move(trailingPoint.x, trailingPoint.y);
+  await page.mouse.click(trailingPoint.x, trailingPoint.y);
+  await page.keyboard.up("Alt");
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("First bold target words ending here.");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(inlinePoint.x, inlinePoint.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(inlinePoint.x, inlinePoint.y);
+  await page.keyboard.up("Alt");
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("First bold target words ending here. Next sentence.");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(inlinePoint.x, inlinePoint.y);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.click(inlinePoint.x, inlinePoint.y);
+  await page.keyboard.up("Alt");
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("First bold target words ending here. Next sentence. Container sibling.");
+
+  await page.keyboard.down("Alt");
+  await page.mouse.move(inlinePoint.x, inlinePoint.y);
+  await page.mouse.wheel(0, -100);
+  await page.keyboard.up("Alt");
+  await page.keyboard.down("Alt");
+  await page.mouse.click(inlinePoint.x, inlinePoint.y);
+  await page.keyboard.up("Alt");
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("bold target words");
+
+  await page.close();
+});
+
 test("copies tables as TSV without hidden cells", async function () {
   const { page } = await openPage("fixtures/table-copy.html");
   await altClick(page.locator("td", { hasText: "Analytics Hub" }));

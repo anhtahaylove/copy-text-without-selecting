@@ -80,3 +80,38 @@ test("content history keeps the background service worker as the only writer", a
     restoreChrome();
   }
 });
+
+test("successful precision copy resets expanded scope", async function () {
+  const restoreNavigator = replaceGlobal("navigator", {
+    clipboard: {
+      writeText: async function () {},
+    },
+  });
+  const restoreWindow = replaceGlobal("window", {
+    location: { hostname: "example.com" },
+  });
+  let resets = 0;
+  const clipboard = createContentClipboard({
+    state: { hoverState: {} },
+  }, {
+    resetScopeState: function () { resets += 1; },
+  }, {
+    getText: function () { return "Copied text"; },
+    getHtmlContent: function () { return ""; },
+  }, {
+    showCopyFeedback: function () {},
+  }, {
+    getAnalyticsTypeForResult: function () { return "copy"; },
+    getToastAnalyticsKind: function () { return "copied"; },
+    saveAnalyticsEvents: function () {},
+    saveHistory: async function () {},
+  });
+
+  try {
+    assert.equal(await clipboard.executePrecisionCopy({ kind: "text", rect: {} }, "click"), true);
+    assert.equal(resets, 1);
+  } finally {
+    restoreWindow();
+    restoreNavigator();
+  }
+});
