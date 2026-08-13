@@ -294,6 +294,21 @@ test("copies icon-only semantic actions without leaking ancestor text", async fu
     return window.fixtureActionClickCount;
   })).toBe(0);
 
+  await altClick(page.locator("#shadow-text-action-host span"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Slotted Action");
+
+  await altClick(page.locator("#shadow-scoped-label-host").locator("#shadow-scoped-label-button"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Shadow scoped label");
+
+  await altClick(page.locator("#shadow-scoped-label-host").locator("#shadow-out-of-scope-button"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Shadow title fallback");
+
   await altClick(page.locator("#labelled-action svg"));
   await expect.poll(async function () {
     return readClipboard(page);
@@ -411,6 +426,40 @@ test("copies a focused icon-only action through the shortcut path", async functi
   await expect.poll(async function () {
     return readClipboard(page);
   }).toBe("Shadow slot action");
+
+  await page.locator("#shadow-text-action-host").evaluate(function (host) {
+    host.shadowRoot.getElementById("shadow-text-action-button").focus();
+  });
+  const textActionPopupPage = await openExtensionPage("popup.html");
+  await textActionPopupPage.evaluate(async function () {
+    const tabs = await chrome.tabs.query({ lastFocusedWindow: true });
+    const targetTab = tabs.find(function (tab) {
+      return typeof tab.url === "string" && tab.url.includes("/fixtures/semantic-actions.html");
+    });
+    await chrome.tabs.sendMessage(targetTab.id, { type: "COPY_TEXT_WITHOUT_SELECTING_SHORTCUT" });
+  });
+  await textActionPopupPage.close();
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Slotted Action");
+
+  await page.locator("#shadow-input-host").evaluate(function (host) {
+    const input = host.shadowRoot.getElementById("shadow-selection-input");
+    input.focus();
+    input.setSelectionRange(1, 4);
+  });
+  const inputPopupPage = await openExtensionPage("popup.html");
+  await inputPopupPage.evaluate(async function () {
+    const tabs = await chrome.tabs.query({ lastFocusedWindow: true });
+    const targetTab = tabs.find(function (tab) {
+      return typeof tab.url === "string" && tab.url.includes("/fixtures/semantic-actions.html");
+    });
+    await chrome.tabs.sendMessage(targetTab.id, { type: "COPY_TEXT_WITHOUT_SELECTING_SHORTCUT" });
+  });
+  await inputPopupPage.close();
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("bcd");
   await page.close();
 });
 

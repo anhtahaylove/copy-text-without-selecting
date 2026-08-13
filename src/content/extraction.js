@@ -144,8 +144,7 @@ function createContentExtraction(context, targeting) {
     if (labelledBy) {
       const labelledText = labelledBy.split(/\s+/).map(function (id) {
         const root = typeof element.getRootNode == "function" ? element.getRootNode() : null;
-        const labelledElement = (root && typeof root.getElementById == "function" && root.getElementById(id))
-          || (element.ownerDocument && element.ownerDocument.getElementById(id));
+        const labelledElement = root && typeof root.getElementById == "function" ? root.getElementById(id) : null;
         return labelledElement ? labelledElement.textContent : "";
       }).join(" ");
       const normalizedLabelledText = normalizeAccessibleLabel(labelledText);
@@ -214,22 +213,39 @@ function createContentExtraction(context, targeting) {
       return targeting.isNodeVisible(node) ? String(node.textContent || "") : "";
     }
 
-    const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
-      acceptNode: function (textNode) {
-        return targeting.isNodeVisible(textNode) && String(textNode.textContent || "").trim()
-          ? NodeFilter.FILTER_ACCEPT
-          : NodeFilter.FILTER_REJECT;
-      }
-    });
-
     const parts = [];
-    let current = walker.nextNode();
-    while (current) {
-      parts.push(String(current.textContent || "").trim());
-      current = walker.nextNode();
-    }
+    collectComposedText(node, parts);
 
     return parts.join(" ").replace(/\s+/g, " ").trim();
+  }
+
+  function collectComposedText(node, parts) {
+    if (!node) {
+      return;
+    }
+    if (node.nodeType == Node.TEXT_NODE) {
+      if (targeting.isNodeVisible(node) && String(node.textContent || "").trim()) {
+        parts.push(String(node.textContent || "").trim());
+      }
+      return;
+    }
+    if (node.nodeType == Node.ELEMENT_NODE && !targeting.isNodeVisible(node)) {
+      return;
+    }
+
+    let children;
+    if (node.nodeType == Node.ELEMENT_NODE && node.nodeName.toUpperCase() === "SLOT" && typeof node.assignedNodes == "function") {
+      const assignedNodes = node.assignedNodes({ flatten: true });
+      children = assignedNodes.length ? assignedNodes : Array.from(node.childNodes || []);
+    } else if (node.nodeType == Node.ELEMENT_NODE && node.shadowRoot) {
+      children = Array.from(node.shadowRoot.childNodes || []);
+    } else {
+      children = Array.from(node.childNodes || []);
+    }
+
+    children.forEach(function (child) {
+      collectComposedText(child, parts);
+    });
   }
 
   function extractTableAsTsv(table) {
@@ -410,6 +426,7 @@ function createContentExtraction(context, targeting) {
     getExtractionNode,
     getImageText,
     collectVisibleText,
+    collectComposedText,
     extractTableAsTsv,
     extractCodeText,
     extractListAsText,

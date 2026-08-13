@@ -224,7 +224,7 @@ function createContentTargeting(context, dependencies) {
       }
     }
 
-    const activeElement = document.activeElement;
+    const activeElement = getDeepActiveElement(document);
     if (activeElement && (activeElement.nodeName == "INPUT" || activeElement.nodeName == "TEXTAREA")) {
       const start = typeof activeElement.selectionStart == "number" ? activeElement.selectionStart : 0;
       const end = typeof activeElement.selectionEnd == "number" ? activeElement.selectionEnd : 0;
@@ -467,7 +467,7 @@ function createContentTargeting(context, dependencies) {
   }
 
   function getNativeCopiedText() {
-    const activeElement = document.activeElement;
+    const activeElement = getDeepActiveElement(document);
     if (activeElement && (activeElement.nodeName == "INPUT" || activeElement.nodeName == "TEXTAREA")) {
       const start = typeof activeElement.selectionStart == "number" ? activeElement.selectionStart : 0;
       const end = typeof activeElement.selectionEnd == "number" ? activeElement.selectionEnd : 0;

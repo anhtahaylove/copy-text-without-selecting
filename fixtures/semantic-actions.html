@@ -62,6 +62,8 @@
     </article>
 
     <span id="labelled-action-name" hidden>Referenced action label</span>
+    <span id="document-only-label" hidden>Document secret</span>
+    <span id="document-leak-label" hidden>Leaked document label</span>
     <button id="labelled-action" type="button" aria-labelledby="labelled-action-name" aria-label="Ignored aria label" title="Ignored title">
         <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M4 12h16"></path></svg>
     </button>
@@ -95,6 +97,10 @@
         </span>
     </div>
 
+    <div id="shadow-text-action-host"><span>Slotted Action</span></div>
+    <div id="shadow-scoped-label-host"></div>
+    <div id="shadow-input-host"></div>
+
     <div id="nested-action" role="button" tabindex="0" aria-label="Outer card action">
         <a id="nested-action-link" href="https://example.com/nested-docs">Nested documentation</a>
     </div>
@@ -118,6 +124,27 @@
         });
         shadowRoot.getElementById("shadow-action-button").addEventListener("click", function () {
             window.fixtureActionClickCount += 1;
+        });
+
+        const textActionRoot = document.getElementById("shadow-text-action-host").attachShadow({ mode: "open" });
+        textActionRoot.innerHTML = `<button id="shadow-text-action-button" type="button"><slot></slot></button>`;
+
+        const scopedLabelRoot = document.getElementById("shadow-scoped-label-host").attachShadow({ mode: "open" });
+        scopedLabelRoot.innerHTML = `
+            <span id="document-only-label">Shadow scoped label</span>
+            <button id="shadow-scoped-label-button" type="button" aria-labelledby="document-only-label"></button>
+            <button id="shadow-out-of-scope-button" type="button" aria-labelledby="document-leak-label" title="Shadow title fallback"></button>
+        `;
+
+        const inputRoot = document.getElementById("shadow-input-host").attachShadow({ mode: "open" });
+        inputRoot.innerHTML = `<input id="shadow-selection-input" value="abcdef">`;
+
+        [textActionRoot, scopedLabelRoot].forEach(function (root) {
+            root.querySelectorAll("button").forEach(function (button) {
+                button.addEventListener("click", function () {
+                    window.fixtureActionClickCount += 1;
+                });
+            });
         });
     </script>
 </body>
