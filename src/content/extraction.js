@@ -3,6 +3,23 @@ function createContentExtraction(context, targeting) {
   const CONTROL_SELECTOR = "input, textarea, select";
   const LINK_SELECTOR = "a[href]";
   const MAX_ACCESSIBLE_LABEL_LENGTH = 500;
+  const SAFE_HTML_TAGS = new Set([
+    "A", "B", "BLOCKQUOTE", "BR", "CODE", "DEL", "EM", "H1", "H2", "H3", "H4", "H5", "H6",
+    "I", "LI", "OL", "P", "PRE", "S", "SPAN", "STRONG", "SUB", "SUP", "TABLE", "TBODY", "TD",
+    "TFOOT", "TH", "THEAD", "TR", "U", "UL",
+  ]);
+  const DROP_HTML_TAGS = new Set([
+    "BASE", "BUTTON", "EMBED", "FORM", "FRAME", "FRAMESET", "IFRAME", "INPUT", "LINK", "MATH", "META",
+    "OBJECT", "SCRIPT", "SELECT", "STYLE", "SVG", "TEMPLATE", "TEXTAREA",
+  ]);
+  const SAFE_GLOBAL_HTML_ATTRIBUTES = new Set(["dir", "lang", "title"]);
+  const SAFE_TAG_HTML_ATTRIBUTES = {
+    A: new Set(["href"]),
+    LI: new Set(["value"]),
+    OL: new Set(["start"]),
+    TD: new Set(["colspan", "rowspan"]),
+    TH: new Set(["colspan", "rowspan"]),
+  };
 
   function getText(target) {
     const extractionContext = resolveExtractionContext(target);
@@ -470,13 +487,65 @@ function createContentExtraction(context, targeting) {
       return "";
     }
 
-    return html
-      .replace(/<script[\s\S]*?<\/script>/gi, "")
-      .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "")
-      .replace(/\son\w+\s*=\s*\S+/gi, "")
-      .replace(/javascript\s*:/gi, "")
-      .replace(/\sdata-track[\w-]*\s*=\s*["'][^"']*["']/gi, "")
-      .replace(/\sdata-analytics[\w-]*\s*=\s*["'][^"']*["']/gi, "");
+    if (typeof document === "undefined" || typeof document.createElement !== "function") {
+      return escapeHtmlText(html);
+    }
+
+    const template = document.createElement("template");
+    template.innerHTML = String(html);
+    sanitizeHtmlChildren(template.content);
+    return template.innerHTML;
+  }
+
+  function sanitizeHtmlChildren(parent) {
+    Array.from(parent.childNodes || []).forEach(function (node) {
+      if (node.nodeType === Node.COMMENT_NODE) {
+        node.remove();
+        return;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        return;
+      }
+
+      const tagName = node.nodeName.toUpperCase();
+      if (DROP_HTML_TAGS.has(tagName)) {
+        node.remove();
+        return;
+      }
+
+      sanitizeHtmlChildren(node);
+      if (!SAFE_HTML_TAGS.has(tagName)) {
+        node.replaceWith(...Array.from(node.childNodes));
+        return;
+      }
+
+      sanitizeHtmlAttributes(node, tagName);
+    });
+  }
+
+  function sanitizeHtmlAttributes(element, tagName) {
+    const tagAttributes = SAFE_TAG_HTML_ATTRIBUTES[tagName] || new Set();
+    Array.from(element.attributes || []).forEach(function (attribute) {
+      const name = attribute.name.toLowerCase();
+      const allowed = SAFE_GLOBAL_HTML_ATTRIBUTES.has(name) || tagAttributes.has(name);
+      if (!allowed || (tagName === "A" && name === "href" && !isSafeHtmlHref(attribute.value))) {
+        element.removeAttribute(attribute.name);
+      }
+    });
+  }
+
+  function isSafeHtmlHref(value) {
+    const href = String(value || "").trim();
+    if (!href) {
+      return false;
+    }
+    try {
+      const baseUrl = document.baseURI || "https://invalid.local/";
+      const protocol = new URL(href, baseUrl).protocol.toLowerCase();
+      return ["http:", "https:", "mailto:", "tel:"].includes(protocol);
+    } catch (error) {
+      return false;
+    }
   }
 
   return {
@@ -512,6 +581,9 @@ function createContentExtraction(context, targeting) {
     escapeHtmlText,
     escapeHtmlAttribute,
     sanitizeHtml,
+    sanitizeHtmlChildren,
+    sanitizeHtmlAttributes,
+    isSafeHtmlHref,
   };
 }
 

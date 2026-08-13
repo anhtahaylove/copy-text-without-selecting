@@ -329,6 +329,28 @@ test("copies rich targets from the basic fixture", async function () {
   }
 });
 
+test("sanitizes active HTML before writing rich clipboard content", async function () {
+  const { page } = await openPage("fixtures/basic-copy.html");
+  await page.locator("#rich-sanitizer-target").evaluate(function (element) {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+
+  await altClick(page.locator("#rich-sanitizer-target strong"));
+  await expect.poll(async function () {
+    return readClipboardHtml(page);
+  }).toContain("<strong>Safe rich text</strong>");
+  const html = await readClipboardHtml(page);
+  expect(html).toContain("<strong>Safe rich text</strong>");
+  expect(html).toContain('<a href="https://example.com/safe">safe link</a>');
+  expect(html).toContain("<span>kept text</span>");
+  expect(html).not.toMatch(/iframe|object|srcdoc|onclick|style|data-track|javascript:/i);
+  await page.close();
+});
+
 test("captures form button copy before page click handlers", async function () {
   const { page } = await openPage("fixtures/google-like-buttons.html");
 
