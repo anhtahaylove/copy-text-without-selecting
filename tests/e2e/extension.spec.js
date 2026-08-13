@@ -165,6 +165,16 @@ async function readLatestHistoryText() {
   return text;
 }
 
+async function readHistoryEntries() {
+  const extensionPage = await openExtensionPage("popup.html");
+  const entries = await extensionPage.evaluate(async function () {
+    const items = await chrome.storage.local.get({ copyHistory: [] });
+    return Array.isArray(items.copyHistory) ? items.copyHistory : [];
+  });
+  await extensionPage.close();
+  return entries;
+}
+
 async function withFreshExtensionContext(callback) {
   await closeExtensionContext();
   await launchExtensionContext();
@@ -174,6 +184,17 @@ async function withFreshExtensionContext(callback) {
 async function readClipboard(page) {
   return page.evaluate(async function () {
     return navigator.clipboard.readText();
+  });
+}
+
+async function readClipboardHtml(page) {
+  return page.evaluate(async function () {
+    const items = await navigator.clipboard.read();
+    const item = items.find(function (candidate) {
+      return candidate.types.includes("text/html");
+    });
+    if (!item) return "";
+    return (await item.getType("text/html")).text();
   });
 }
 
@@ -258,6 +279,228 @@ test("captures form button copy before page click handlers", async function () {
     return readClipboard(page);
   }).toBe("I'm Feeling Lucky");
 
+  await page.close();
+});
+
+test("copies icon-only semantic actions without leaking ancestor text", async function () {
+  const { page } = await openPage("fixtures/semantic-actions.html");
+
+  await altClick(page.locator("#result-menu svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("About this result");
+  expect(await readClipboardHtml(page)).toBe("About this result");
+  expect(await page.evaluate(function () {
+    return window.fixtureActionClickCount;
+  })).toBe(0);
+
+  await altClick(page.locator("#shadow-text-action-host span"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Slotted Action");
+
+  await altClick(page.locator("#shadow-image-action-host img"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Slotted image action");
+
+  await altClick(page.locator("#shadow-scoped-label-host").locator("#shadow-scoped-label-button"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Shadow scoped label");
+
+  await altClick(page.locator("#shadow-scoped-label-host").locator("#shadow-out-of-scope-button"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Shadow title fallback");
+
+  await altClick(page.locator("#labelled-action svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Referenced action label");
+
+  await altClick(page.locator("#role-button-action svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Role button action");
+
+  await altClick(page.locator("#role-menuitem-action svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Role menu item action");
+
+  await altClick(page.locator("#image-alt-action img"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Download report");
+
+  await altClick(page.locator("#image-alt-link img"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("[Documentation image](https://example.com/image-docs)");
+
+  await altClick(page.locator("#image-input-action"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Submit image action");
+
+  await altClick(page.locator("#shadow-slotted-icon svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Shadow slot action");
+  expect(await page.evaluate(function () {
+    return window.fixtureActionClickCount;
+  })).toBe(0);
+
+  await altClick(page.locator("#nested-action-link"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("[Nested documentation](https://example.com/nested-docs)");
+
+  await altClick(page.locator("#result-link"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("[Example search result](https://example.com/search-result)");
+
+  await expect.poll(async function () {
+    const entries = await readHistoryEntries();
+    return entries.some(function (entry) {
+      return entry.text === "[Example search result](https://example.com/search-result)";
+    });
+  }).toBe(true);
+
+  const historyBeforeUnlabelledAction = await readHistoryEntries();
+  await page.evaluate(async function () {
+    await navigator.clipboard.writeText("unchanged");
+  });
+  await altClick(page.locator("#unlabelled-action svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("unchanged");
+  expect((await readHistoryEntries()).length).toBe(historyBeforeUnlabelledAction.length);
+
+  await page.evaluate(async function () {
+    await navigator.clipboard.writeText("safe-mode-seed");
+  });
+  await altClick(page.locator("#shadow-editor-host").locator("#shadow-editor"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("safe-mode-seed");
+
+  await altClick(page.locator("#hidden-descendant-action svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("safe-mode-seed");
+
+  await altClick(page.locator("#shadow-unassigned-image-action-host").locator("svg"));
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("safe-mode-seed");
+  expect((await readHistoryEntries()).length).toBe(historyBeforeUnlabelledAction.length);
+
+  await page.close();
+});
+
+test("copies a focused icon-only action through the shortcut path", async function () {
+  const { page } = await openPage("fixtures/semantic-actions.html");
+  await page.locator("#result-menu").focus();
+
+  const popupPage = await openExtensionPage("popup.html");
+  await popupPage.evaluate(async function () {
+    const tabs = await chrome.tabs.query({ lastFocusedWindow: true });
+    const targetTab = tabs.find(function (tab) {
+      return typeof tab.url === "string" && tab.url.includes("/fixtures/semantic-actions.html");
+    });
+    if (!targetTab || !targetTab.id) {
+      throw new Error("Fixture tab not found for semantic shortcut test.");
+    }
+    await chrome.tabs.sendMessage(targetTab.id, {
+      type: "COPY_TEXT_WITHOUT_SELECTING_SHORTCUT",
+    });
+  });
+  await popupPage.close();
+
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("About this result");
+
+  await page.locator("#shadow-action-host").evaluate(function (host) {
+    host.shadowRoot.getElementById("shadow-action-button").focus();
+  });
+  const shadowPopupPage = await openExtensionPage("popup.html");
+  await shadowPopupPage.evaluate(async function () {
+    const tabs = await chrome.tabs.query({ lastFocusedWindow: true });
+    const targetTab = tabs.find(function (tab) {
+      return typeof tab.url === "string" && tab.url.includes("/fixtures/semantic-actions.html");
+    });
+    if (!targetTab || !targetTab.id) {
+      throw new Error("Fixture tab not found for shadow shortcut test.");
+    }
+    await chrome.tabs.sendMessage(targetTab.id, {
+      type: "COPY_TEXT_WITHOUT_SELECTING_SHORTCUT",
+    });
+  });
+  await shadowPopupPage.close();
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Shadow slot action");
+
+  await page.locator("#shadow-text-action-host").evaluate(function (host) {
+    host.shadowRoot.getElementById("shadow-text-action-button").focus();
+  });
+  const textActionPopupPage = await openExtensionPage("popup.html");
+  await textActionPopupPage.evaluate(async function () {
+    const tabs = await chrome.tabs.query({ lastFocusedWindow: true });
+    const targetTab = tabs.find(function (tab) {
+      return typeof tab.url === "string" && tab.url.includes("/fixtures/semantic-actions.html");
+    });
+    await chrome.tabs.sendMessage(targetTab.id, { type: "COPY_TEXT_WITHOUT_SELECTING_SHORTCUT" });
+  });
+  await textActionPopupPage.close();
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("Slotted Action");
+
+  await page.locator("#shadow-input-host").evaluate(function (host) {
+    const input = host.shadowRoot.getElementById("shadow-selection-input");
+    input.focus();
+    input.setSelectionRange(1, 4);
+  });
+  const inputPopupPage = await openExtensionPage("popup.html");
+  await inputPopupPage.evaluate(async function () {
+    const tabs = await chrome.tabs.query({ lastFocusedWindow: true });
+    const targetTab = tabs.find(function (tab) {
+      return typeof tab.url === "string" && tab.url.includes("/fixtures/semantic-actions.html");
+    });
+    await chrome.tabs.sendMessage(targetTab.id, { type: "COPY_TEXT_WITHOUT_SELECTING_SHORTCUT" });
+  });
+  await inputPopupPage.close();
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("bcd");
+
+  await page.locator("#result-menu").hover();
+  await page.locator("#shadow-range-host").evaluate(function (host) {
+    const textNode = host.shadowRoot.getElementById("shadow-range-text").firstChild;
+    const range = document.createRange();
+    range.setStart(textNode, 1);
+    range.setEnd(textNode, 4);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+  const rangePopupPage = await openExtensionPage("popup.html");
+  await rangePopupPage.evaluate(async function () {
+    const tabs = await chrome.tabs.query({ lastFocusedWindow: true });
+    const targetTab = tabs.find(function (tab) {
+      return typeof tab.url === "string" && tab.url.includes("/fixtures/semantic-actions.html");
+    });
+    await chrome.tabs.sendMessage(targetTab.id, { type: "COPY_TEXT_WITHOUT_SELECTING_SHORTCUT" });
+  });
+  await rangePopupPage.close();
+  await expect.poll(async function () {
+    return readClipboard(page);
+  }).toBe("bcd");
   await page.close();
 });
 

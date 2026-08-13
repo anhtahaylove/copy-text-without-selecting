@@ -132,7 +132,11 @@ function createContentTargeting(context, dependencies) {
     const clientY = Number.isFinite(localContext.clientY) ? localContext.clientY : hoverState.pointerClientY;
 
     if (localContext.preferSelection !== false) {
-      const selectionTarget = getSelectionTarget(sourceElement, clientX, clientY);
+      const selectionTarget = getSelectionTarget(
+        sourceElement,
+        localContext.ignoreSelectionPointer ? null : clientX,
+        localContext.ignoreSelectionPointer ? null : clientY
+      );
       if (selectionTarget) {
         return selectionTarget;
       }
@@ -147,9 +151,10 @@ function createContentTargeting(context, dependencies) {
       }
     }
 
-    const deepTextTarget = getDeepTextTarget(clientX, clientY);
     const fallbackElement = getDeepElementTarget(sourceElement, clientX, clientY);
-    const preliminaryTarget = deepTextTarget || createElementTarget(fallbackElement);
+    const semanticElement = extraction().getClosestSemanticElement(fallbackElement);
+    const deepTextTarget = semanticElement ? null : getDeepTextTarget(clientX, clientY);
+    const preliminaryTarget = deepTextTarget || createElementTarget(semanticElement || fallbackElement);
     if (!preliminaryTarget) {
       return null;
     }
@@ -171,6 +176,18 @@ function createContentTargeting(context, dependencies) {
         return { kind: "list", container: extractionContext.container, rect: extractionContext.container.getBoundingClientRect(), node: extractionContext.container };
       case "link":
         return { kind: "link", anchor: extractionContext.anchor, rect: extractionContext.anchor.getBoundingClientRect(), node: extractionContext.anchor };
+      case "action":
+        if (!extractionContext.label) {
+          return null;
+        }
+        return {
+          kind: "action",
+          element: extractionContext.element,
+          label: extractionContext.label,
+          labelSource: extractionContext.labelSource,
+          rect: extractionContext.element.getBoundingClientRect(),
+          node: extractionContext.element,
+        };
       case "image":
         return { kind: "image", element: extractionContext.element, rect: extractionContext.element.getBoundingClientRect(), node: extractionContext.element };
       case "control":
@@ -211,7 +228,7 @@ function createContentTargeting(context, dependencies) {
       }
     }
 
-    const activeElement = document.activeElement;
+    const activeElement = getDeepActiveElement(document);
     if (activeElement && (activeElement.nodeName == "INPUT" || activeElement.nodeName == "TEXTAREA")) {
       const start = typeof activeElement.selectionStart == "number" ? activeElement.selectionStart : 0;
       const end = typeof activeElement.selectionEnd == "number" ? activeElement.selectionEnd : 0;
@@ -289,15 +306,40 @@ function createContentTargeting(context, dependencies) {
   }
 
   function getClosestMeaningfulElement(element) {
-    let current = getElementNode(element);
+    const initialElement = getElementNode(element);
+    const semanticElement = extraction().getClosestSemanticElement(initialElement);
+    if (semanticElement) {
+      return semanticElement;
+    }
+
+    if (isGraphicOnlyTarget(initialElement)) {
+      return null;
+    }
+
+    let current = initialElement;
     while (current) {
       const tagName = current.nodeName.toUpperCase();
       if (hasMeaningfulText(current) || tagName == "IMG" || tagName == "INPUT" || tagName == "TEXTAREA" || tagName == "SELECT") {
         return current;
       }
+      current = extraction().getComposedParentElement(current);
+    }
+    return null;
+  }
+
+  function isGraphicOnlyTarget(element) {
+    let current = element;
+    while (current) {
+      const tagName = current.nodeName.toUpperCase();
+      if (["SVG", "PATH", "CIRCLE", "ELLIPSE", "G", "LINE", "POLYGON", "POLYLINE", "RECT", "USE"].includes(tagName)) {
+        return true;
+      }
+      if (String(current.textContent || "").trim()) {
+        return false;
+      }
       current = current.parentElement;
     }
-    return getElementNode(element);
+    return false;
   }
 
   function createElementTarget(element) {
@@ -322,6 +364,10 @@ function createContentTargeting(context, dependencies) {
     if (node.nodeType != Node.ELEMENT_NODE) {
       return false;
     }
+    const semanticElement = extraction().getClosestSemanticElement(node);
+    if (semanticElement === node && extraction().resolveExtractionContext(createElementTarget(node)).kind == "action") {
+      return !!extraction().getAccessibleActionLabel(node).text;
+    }
     if (node.nodeName.toUpperCase() == "IMG") {
       return !!extraction().getImageText(node);
     }
@@ -329,16 +375,20 @@ function createContentTargeting(context, dependencies) {
   }
 
   function isNodeVisible(node) {
-    const element = getElementNode(node);
-    if (!element) {
+    let current = getElementNode(node);
+    if (!current) {
       return false;
     }
-    if (element.hidden || element.getAttribute("aria-hidden") == "true") {
-      return false;
-    }
-    const style = window.getComputedStyle ? window.getComputedStyle(element) : null;
-    if (style && (style.display == "none" || style.visibility == "hidden")) {
-      return false;
+
+    while (current) {
+      if (current.hidden || current.getAttribute("aria-hidden") == "true") {
+        return false;
+      }
+      const style = window.getComputedStyle ? window.getComputedStyle(current) : null;
+      if (style && (style.display == "none" || style.visibility == "hidden")) {
+        return false;
+      }
+      current = extraction().getComposedParentElement(current);
     }
     return true;
   }
@@ -391,28 +441,54 @@ function createContentTargeting(context, dependencies) {
   }
 
   function shouldIgnoreElement(node) {
-    return settings().avoidEditable && utils.isEditableSurface(getElementNode(node));
+    if (!settings().avoidEditable) {
+      return false;
+    }
+    let element = getElementNode(node);
+    while (element) {
+      if (utils.isEditableSurface(element)) {
+        return true;
+      }
+      element = extraction().getComposedParentElement(element);
+    }
+    return false;
   }
 
   function resolveShortcutTarget() {
+    const selection = window.getSelection ? window.getSelection() : null;
+    if (selection && selection.rangeCount && !selection.isCollapsed && String(selection.toString() || "").trim()) {
+      return selection.anchorNode || selection.getRangeAt(0).commonAncestorContainer;
+    }
+
+    const activeElement = getDeepActiveElement(document);
+    if (activeElement && (activeElement.nodeName == "INPUT" || activeElement.nodeName == "TEXTAREA")) {
+      const start = typeof activeElement.selectionStart == "number" ? activeElement.selectionStart : 0;
+      const end = typeof activeElement.selectionEnd == "number" ? activeElement.selectionEnd : 0;
+      if (end > start) {
+        return activeElement;
+      }
+    }
+    if (activeElement && activeElement !== document.body && activeElement !== document.documentElement) {
+      return activeElement;
+    }
+
     if (hoverState.hoveredElement && hoverState.hoveredElement.isConnected) {
       return hoverState.hoveredElement;
-    }
-
-    if (document.activeElement && document.activeElement !== document.body && document.activeElement !== document.documentElement) {
-      return document.activeElement;
-    }
-
-    const selection = window.getSelection ? window.getSelection() : null;
-    if (selection && selection.anchorNode) {
-      return selection.anchorNode;
     }
 
     return null;
   }
 
+  function getDeepActiveElement(root) {
+    let activeElement = root && root.activeElement;
+    while (activeElement && activeElement.shadowRoot && activeElement.shadowRoot.activeElement) {
+      activeElement = activeElement.shadowRoot.activeElement;
+    }
+    return activeElement || null;
+  }
+
   function getNativeCopiedText() {
-    const activeElement = document.activeElement;
+    const activeElement = getDeepActiveElement(document);
     if (activeElement && (activeElement.nodeName == "INPUT" || activeElement.nodeName == "TEXTAREA")) {
       const start = typeof activeElement.selectionStart == "number" ? activeElement.selectionStart : 0;
       const end = typeof activeElement.selectionEnd == "number" ? activeElement.selectionEnd : 0;
@@ -460,6 +536,7 @@ function createContentTargeting(context, dependencies) {
     isPointInsideRect,
     shouldIgnoreElement,
     resolveShortcutTarget,
+    getDeepActiveElement,
     getNativeCopiedText,
     getElementNode,
   };

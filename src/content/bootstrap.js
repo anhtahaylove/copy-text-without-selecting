@@ -121,6 +121,7 @@
 
     helpers.copyCommand(shortcutTarget, "shortcut", {
       preferSelection: true,
+      ignoreSelectionPointer: true,
     }).then(function (copied) {
       sendResponse({ ok: !!copied, copied: !!copied });
     }).catch(function (error) {
