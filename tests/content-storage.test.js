@@ -98,6 +98,7 @@ test("successful precision copy resets expanded scope", async function () {
   }, {
     getText: function () { return "Copied text"; },
     getHtmlContent: function () { return ""; },
+    getCopyMetadata: function () { return { targetKind: "text" }; },
   }, {
     showCopyFeedback: function () {},
   }, {
@@ -112,6 +113,63 @@ test("successful precision copy resets expanded scope", async function () {
     assert.equal(resets, 1);
   } finally {
     restoreWindow();
+    restoreNavigator();
+  }
+});
+
+test("rich clipboard write publishes matching plain and HTML MIME blobs", async function () {
+  let writtenItems;
+  const restoreNavigator = replaceGlobal("navigator", {
+    clipboard: {
+      write: async function (items) { writtenItems = items; },
+    },
+  });
+  const restoreClipboardItem = replaceGlobal("ClipboardItem", class ClipboardItem {
+    constructor(data) {
+      this.data = data;
+    }
+  });
+  const clipboard = createContentClipboard({ state: { hoverState: {} } }, {}, {}, {}, {});
+
+  try {
+    await clipboard.copy("Plain label", "<b>Plain label</b>");
+    assert.equal(writtenItems.length, 1);
+    const data = writtenItems[0].data;
+    assert.deepEqual(Object.keys(data).sort(), ["text/html", "text/plain"]);
+    assert.equal(data["text/plain"].type, "text/plain");
+    assert.equal(await data["text/plain"].text(), "Plain label");
+    assert.equal(data["text/html"].type, "text/html");
+    assert.equal(await data["text/html"].text(), "<b>Plain label</b>");
+  } finally {
+    restoreClipboardItem();
+    restoreNavigator();
+  }
+});
+
+test("rich clipboard failure falls back to writeText exactly once", async function () {
+  let fallbackText = "";
+  let fallbackWrites = 0;
+  const restoreNavigator = replaceGlobal("navigator", {
+    clipboard: {
+      write: async function () { throw new Error("rich write blocked"); },
+      writeText: async function (text) {
+        fallbackWrites += 1;
+        fallbackText = text;
+      },
+    },
+  });
+  const restoreClipboardItem = replaceGlobal("ClipboardItem", class ClipboardItem {});
+  const clipboard = createContentClipboard({ state: { hoverState: {} } }, {}, {}, {}, {});
+  const originalWarn = console.warn;
+  console.warn = function () {};
+
+  try {
+    await clipboard.copy("Fallback label", "<b>Fallback label</b>");
+    assert.equal(fallbackWrites, 1);
+    assert.equal(fallbackText, "Fallback label");
+  } finally {
+    console.warn = originalWarn;
+    restoreClipboardItem();
     restoreNavigator();
   }
 });
