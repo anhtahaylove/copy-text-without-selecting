@@ -97,3 +97,50 @@ test("createDeterministicZipFromDirectory produces stable bytes", function () {
 
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
+
+test("release packaging normalizes text line endings before creating the ZIP", function () {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "copy-text-line-endings-"));
+  const lfRoot = path.join(tempRoot, "lf-source");
+  const crlfRoot = path.join(tempRoot, "crlf-source");
+  const lfOutput = path.join(tempRoot, "lf-output");
+  const crlfOutput = path.join(tempRoot, "crlf-output");
+  const lfZip = path.join(tempRoot, "lf.zip");
+  const crlfZip = path.join(tempRoot, "crlf.zip");
+
+  try {
+    for (const entry of releaseUtils.getReleaseEntries()) {
+      const source = fs.readFileSync(entry.sourcePath);
+      const lfDestination = path.join(lfRoot, entry.relativePath);
+      const crlfDestination = path.join(crlfRoot, entry.relativePath);
+      fs.mkdirSync(path.dirname(lfDestination), { recursive: true });
+      fs.mkdirSync(path.dirname(crlfDestination), { recursive: true });
+
+      if (releaseUtils.isReleaseTextPath(entry.relativePath)) {
+        const normalized = releaseUtils.normalizeLineEndings(source.toString("utf8"));
+        fs.writeFileSync(lfDestination, normalized, "utf8");
+        fs.writeFileSync(crlfDestination, normalized.replace(/\n/g, "\r\n"), "utf8");
+      } else {
+        fs.writeFileSync(lfDestination, source);
+        fs.writeFileSync(crlfDestination, source);
+      }
+    }
+
+    releaseUtils.copyReleaseFiles(lfRoot, lfOutput);
+    releaseUtils.copyReleaseFiles(crlfRoot, crlfOutput);
+    fs.writeFileSync(path.join(lfOutput, "background.js"), "const ready = true;\n", "utf8");
+    fs.writeFileSync(path.join(crlfOutput, "background.js"), "const ready = true;\r\n", "utf8");
+    releaseUtils.normalizeReleaseTextFiles(lfOutput);
+    releaseUtils.normalizeReleaseTextFiles(crlfOutput);
+    releaseUtils.createDeterministicZipFromDirectory(lfOutput, lfZip);
+    releaseUtils.createDeterministicZipFromDirectory(crlfOutput, crlfZip);
+
+    assert.deepEqual(fs.readFileSync(lfZip), fs.readFileSync(crlfZip));
+    for (const relativePath of releaseUtils.listFilesRecursive(crlfOutput)) {
+      if (releaseUtils.isReleaseTextPath(relativePath)) {
+        assert.ok(!fs.readFileSync(path.join(crlfOutput, relativePath), "utf8").includes("\r"));
+      }
+    }
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});

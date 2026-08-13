@@ -1,4 +1,4 @@
-name: Release Artifact Attestation
+name: Published Release Verification
 
 on:
   release:
@@ -7,24 +7,22 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Published release tag to verify and attest (for example, v2.5.0)
+        description: Published release tag to verify (for example, v2.5.0)
         required: true
         type: string
 
 permissions:
   contents: read
-  id-token: write
-  attestations: write
 
 concurrency:
-  group: release-artifact-attestation-${{ github.event.release.tag_name || inputs.tag }}
+  group: published-release-verification-${{ github.event.release.tag_name || inputs.tag }}
   cancel-in-progress: false
 
 jobs:
-  attest-release-zip:
-    name: Verify and attest Chrome ZIP
+  verify-release-zip:
+    name: Verify published Chrome ZIP
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
@@ -57,6 +55,23 @@ jobs:
           archive_name="copy-text-with-alt-click-chrome-${RELEASE_TAG}.zip"
           echo "archive_name=$archive_name" >> "$GITHUB_OUTPUT"
 
+      - name: Check out release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild Chrome package from the tag
+        run: npm run pack:chrome
+
       - name: Download published release assets
         shell: bash
         run: |
@@ -69,7 +84,7 @@ jobs:
             --pattern "SHA256SUMS.txt" \
             --dir release-assets
 
-      - name: Verify published checksum
+      - name: Verify checksum and clean rebuild
         shell: bash
         env:
           ARCHIVE_NAME: ${{ steps.release.outputs.archive_name }}
@@ -77,9 +92,11 @@ jobs:
           set -euo pipefail
 
           published_archive="release-assets/$ARCHIVE_NAME"
+          rebuilt_archive="dist/$ARCHIVE_NAME"
           checksum_file="release-assets/SHA256SUMS.txt"
 
           test -f "$published_archive"
+          test -f "$rebuilt_archive"
           test -f "$checksum_file"
 
           expected_checksum_line="$(sha256sum "$published_archive" | sed "s#  release-assets/#  #")"
@@ -88,8 +105,18 @@ jobs:
             echo "SHA256SUMS.txt does not match the published Chrome ZIP." >&2
             exit 1
           fi
+          if ! cmp --silent "$rebuilt_archive" "$published_archive"; then
+            echo "Published Chrome ZIP does not match a clean build from $RELEASE_TAG." >&2
+            exit 1
+          fi
 
-      - name: Attest published Chrome ZIP
-        uses: actions/attest@v4
-        with:
-          subject-path: release-assets/${{ steps.release.outputs.archive_name }}
+      - name: Verify tag-bound artifact attestation
+        shell: bash
+        env:
+          ARCHIVE_NAME: ${{ steps.release.outputs.archive_name }}
+        run: |
+          gh attestation verify "release-assets/$ARCHIVE_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release-package.yml" \
+            --source-ref "refs/tags/$RELEASE_TAG" \
+            --deny-self-hosted-runners

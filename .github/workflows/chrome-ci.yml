@@ -31,8 +31,8 @@ jobs:
       - name: Check manifest
         run: npm run check:manifest
 
-      - name: Build Chrome package
-        run: npm run build:chrome
+      - name: Verify reproducible Chrome package
+        run: npm run check:release-reproducibility
 
   e2e:
     runs-on: ubuntu-latest
